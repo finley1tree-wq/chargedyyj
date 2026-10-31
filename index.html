@@ -2,100 +2,1693 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Charged YYJ | Phone charging in Victoria, BC</title>
-<meta name="description" content="Power bank rental stations in bars and venues in Victoria, BC. Tap a credit card or phone, $9, keep it all night, return to any station.">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta property="og:title" content="Charged YYJ">
+<meta property="og:description" content="Phone charging stations in bars across Victoria, BC. Scan the QR code, pay $9 on your phone, take a charged power bank, return it to any station within 24 hours.">
+<meta property="og:image" content="https://chargedyyj.ca/img/station.png">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23000'/%3E%3Cpath d='M22 6 10 23h8l-2 11 12-17h-8z' fill='%23f5c518'/%3E%3C/svg%3E">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Charged YYJ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Charged YYJ: phone charging stations in bars across Victoria, BC. Scan the QR code, pay $9 on your phone, take a charged power bank, return it to any station within 24 hours.">
 <style>
-:root{--navy:#0f172a;--navy2:#1e293b;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--yellow:#facc15;}
-*{box-sizing:border-box}
-html,body{margin:0;background:var(--navy);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.55}
-a{color:var(--yellow)}
-.wrap{max-width:760px;margin:0 auto;padding:0 20px}
-header{padding:56px 0 40px;border-bottom:1px solid var(--line)}
-.brand{font-weight:800;font-size:15px;letter-spacing:2px;color:var(--muted)}
-.brand span{color:var(--yellow)}
-h1{font-size:clamp(32px,7vw,52px);line-height:1.05;margin:14px 0 14px;font-weight:800;letter-spacing:-0.5px}
-h1 em{font-style:normal;color:var(--yellow)}
-.lead{font-size:19px;color:var(--text);max-width:560px;margin:0}
-.price{display:inline-flex;gap:10px;align-items:baseline;margin-top:26px;background:var(--navy2);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
-.price b{font-size:32px;color:var(--yellow)}
-.price small{color:var(--muted);font-size:15px}
-section{padding:40px 0;border-bottom:1px solid var(--line)}
-h2{font-size:22px;margin:0 0 16px}
-ol,ul{padding-left:22px;margin:0}
-li{margin:0 0 10px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:6px}
-.card{background:var(--navy2);border:1px solid var(--line);border-radius:12px;padding:18px}
-.card h3{margin:0 0 6px;font-size:16px;color:var(--yellow)}
-.card p{margin:0;color:var(--text);font-size:15px}
-.terms p{margin:0 0 12px}
-footer{padding:32px 0 48px;color:var(--muted);font-size:14px}
-.cta{display:inline-block;margin-top:16px;background:var(--yellow);color:var(--navy);font-weight:700;text-decoration:none;padding:12px 18px;border-radius:10px}
-.cta.soon{opacity:.6;cursor:default}
+/* ==========================================================================
+   Tokens: one deliberate dark look (no light theme).
+   ========================================================================== */
+:root {
+  color-scheme: dark;
+  --bg: #000000;
+  --accent: #f5c518;          /* Charged YYJ yellow */
+  --text: #dddddd;
+  --muted: #8a8a8a;
+  --chip: #1c1c1c;
+  --chip-text: #cfcfcf;
+  --chip-active: #e6e6e6;
+  --chip-active-text: #000000;
+  --line: #2a2a2a;
+  --white: #ffffff;
+  --thumb: #0a0a0a;
+  --counter-bg: #0a0a0a;
+  --dialog-bg: #0b0b0b;
+  --dialog-text: #e2e2e2;
+  --backdrop: rgba(0, 0, 0, 0.72);
+  --mono: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; }
+
+/* ==========================================================================
+   Layer 0: WebGL particle canvas (and the static fallback).
+   ========================================================================== */
+#bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+  touch-action: none;
+}
+
+.fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.fallback img {
+  display: block;
+  max-width: min(300px, 60vw);
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: 2px;
+}
+.no-webgl #bg { display: none; }
+.no-webgl .fallback { display: flex; }
+
+/* ==========================================================================
+   Layer 1: thin UI.
+   Note: .ui is position:absolute with no z-index on purpose. A fixed or
+   z-indexed layer would create an isolated stacking context, and the
+   plus-lighter text would then blend with nothing. Without one, the text
+   blends with the canvas underneath and glows over the particles.
+   ========================================================================== */
+.ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ui a, .ui button, .tags, .list, .about { pointer-events: auto; }
+
+.glow {
+  mix-blend-mode: screen;        /* fallback where plus-lighter is unknown */
+  mix-blend-mode: plus-lighter;
+}
+
+/* Brand, top left */
+.brand {
+  position: absolute;
+  top: calc(24px + var(--sat));
+  left: calc(24px + var(--sal));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.brand svg { display: block; width: 40px; height: 40px; flex: none; }
+.brand .name {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.1;
+  font-weight: 400;
+  color: var(--white);
+  letter-spacing: 0.02em;
+}
+.brand .name span { color: var(--accent); }
+.brand .sub {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: pre-line;
+}
+
+/* Price counter, top right */
+.counter {
+  position: absolute;
+  top: calc(24px + var(--sat));
+  right: calc(24px + var(--sar));
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--counter-bg);
+  color: var(--white);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Spec chips */
+.tags {
+  position: absolute;
+  top: calc(120px + var(--sat));
+  left: calc(24px + var(--sal));
+  width: 320px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  margin: 0;
+  border-radius: 2px;
+  background: var(--chip);
+  color: var(--chip-text);
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.35;
+  letter-spacing: inherit;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color .3s, color .3s, opacity .3s;
+}
+.chip:hover { opacity: .7; }
+.chip[aria-pressed="true"] { background: var(--chip-active); color: var(--chip-active-text); }
+.chip[aria-pressed="true"]:hover { opacity: 1; }
+
+/* Media cards, left column (scrolls, scrollbar hidden) */
+.list {
+  position: absolute;
+  top: calc(250px + var(--sat));
+  left: calc(24px + var(--sal));
+  bottom: 0;
+  width: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: calc(24px + var(--sab));
+}
+.list::-webkit-scrollbar { display: none; }
+
+.card {
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+  transition: opacity .3s;
+}
+.card.dim { opacity: .25; }
+
+.thumb {
+  position: relative;
+  height: 160px;
+  border-radius: 2px;
+  background: var(--thumb);
+  overflow: hidden;
+}
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.thumb img.contain { object-fit: contain; padding: 10px; }
+
+.thumb-3d { cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+.thumb-3d.dragging { cursor: grabbing; }
+.thumb-3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.meta span { white-space: pre-line; }
+.meta span:first-child { color: var(--white); }
+.meta span:last-child { color: var(--muted); text-align: right; }
+
+/* Text column, right */
+.about {
+  position: absolute;
+  right: calc(90px + var(--sar));
+  top: 50%;
+  transform: translateY(-50%);
+  width: 380px;
+  max-height: calc(100% - 140px - var(--sat) - var(--sab));
+  overflow-y: auto;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+.about::-webkit-scrollbar { display: none; }
+.about .block + .block { margin-top: 2.2em; }
+.about h2 {
+  margin: 0 0 1em;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--accent);
+}
+.about p { margin: 0 0 1em; text-align: justify; }
+.about p.line { margin: 0 0 .35em; text-align: left; }
+.about ol, .about ul { list-style: inside; margin: 0 0 1em; padding: 0; }
+.about ol { list-style: decimal inside; }
+.about li { margin: 0 0 .35em; }
+.about a, .about .link {
+  display: block;
+  margin: 4px 0;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: opacity .3s;
+}
+.about a.inline { display: inline; margin: 0; }
+.about a:hover, .about .link:hover { opacity: .7; }
+.about .link {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.nocase { text-transform: none; }
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+@media (max-width: 1100px) {
+  .about { right: calc(24px + var(--sar)); width: 320px; }
+}
+
+@media (max-width: 760px) {
+  .list, .tags { display: none; }
+  .about {
+    left: calc(24px + var(--sal));
+    right: calc(24px + var(--sar));
+    bottom: calc(24px + var(--sab));
+    top: auto;
+    width: auto;
+    transform: none;
+    max-height: 60vh;
+    max-height: min(60svh, calc(100svh - 120px - var(--sat) - var(--sab)));
+  }
+  .about p { text-align: left; }
+  /* The column scrolls inside itself on short phones: fade the bottom edge so
+     it reads as "more below", and pad the end so the last line clears the fade. */
+  .about {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+    padding-bottom: 40px;
+  }
+  .fallback { align-items: flex-start; padding-top: calc(96px + var(--sat)); }
+  .fallback img { max-height: 30vh; }
+}
+
+/* ==========================================================================
+   Legal dialog (terms + privacy): readable, not uppercase.
+   ========================================================================== */
+dialog.legal {
+  width: min(640px, calc(100% - 32px));
+  max-height: 80vh;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--dialog-bg);
+  color: var(--dialog-text);
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow: hidden;
+}
+dialog.legal[open] { display: flex; flex-direction: column; }
+dialog.legal::backdrop { background: var(--backdrop); }
+.dlg-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.dlg-close {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--chip);
+  color: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 6px 10px;
+  font: inherit;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity .3s;
+}
+.dlg-close:hover { opacity: .7; }
+.dlg-body {
+  position: relative;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 20px 20px;
+}
+.dlg-body h2 {
+  margin: 18px 0 10px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.dlg-body p { margin: 0 0 12px; }
+.dlg-body b { color: var(--white); }
+.dlg-body a { color: var(--accent); }
+.dlg-body a:hover { opacity: .7; }
+.dlg-body section + section { margin-top: 26px; padding-top: 6px; border-top: 1px solid var(--line); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0s !important; scroll-behavior: auto !important; }
+}
 </style>
 </head>
 <body>
-<header>
-  <div class="wrap">
-    <div class="brand">CHARGED <span>YYJ</span></div>
-    <h1>Phone dying? <em>Grab a charger</em> and stay out.</h1>
-    <p class="lead">Power bank rental stations in bars and venues across Victoria, BC. Tap a credit card or phone, take a charged power bank, and keep it all night.</p>
-    <div class="price"><b>$9</b><small>flat, tax included. Keep it all night. Return to any station.</small></div>
-  </div>
-</header>
 
-<section>
-  <div class="wrap">
-    <h2>How it works</h2>
-    <ol>
-      <li>Tap a credit card, or Apple Pay or Google Pay set up with a credit card, on the station. No app, no account. Interac and most Canadian debit cards can't be used (see Card hold below).</li>
-      <li>A charged power bank pops out. It has cables for iPhone and Android built in.</li>
-      <li>Charge as you go. Drop it back into any Charged YYJ station before you head home.</li>
-    </ol>
-    <p style="margin-top:14px;color:var(--muted)">Phone already dead? Tap a physical credit card, or have a friend tap for you.</p>
-  </div>
-</section>
+<!-- Layer 0: particle cloud (decorative) -->
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="fallback" aria-hidden="true"><img src="img/station.png" alt=""></div>
 
-<section id="terms" class="terms">
-  <div class="wrap">
-    <h2>Rental terms and return policy</h2>
-    <p><b>Price.</b> Each rental is $9 CAD for one power bank, tax included (PST). There is no hourly charge.</p>
-    <p><b>Card hold.</b> When you tap, your card gets a temporary $39 CAD hold, not a charge. Return the power bank within 24 hours and we charge only $9; the other $30 is released. Some banks show the full $39 until the hold drops off, which can take a few business days. Because Interac debit can't hold an amount, Interac and most Canadian debit cards are declined. Visa, Mastercard and American Express credit cards work, including in Apple Pay and Google Pay.</p>
-    <p><b>Returns.</b> Return the power bank to any Charged YYJ station within 24 hours of renting it. Stations are inside venues, so they are open when the venue is open. If you give us your email at the station, we email your receipt; you can also ask for a receipt by email.</p>
-    <p><b>If you keep it.</b> If a power bank is not returned within 24 hours, we charge the full $39 CAD hold ($9 rental plus $30 for the power bank) and the power bank is yours. If you gave us a phone number or email, we remind you before this happens. If you return it within 7 days after that, we refund the $30; email us if the refund hasn't appeared within 3 business days.</p>
-    <p><b>Refunds.</b> If a station charges you but does not release a power bank, or the power bank does not charge your phone, contact us and we will refund the rental in full. Refunds go back to the original card and usually take 5 to 10 business days to appear.</p>
-    <p><b>Care.</b> Please do not open, puncture, or leave the power bank in water or extreme heat. We never charge more than $39 in total for one rental, including a lost or damaged power bank.</p>
-  </div>
-</section>
-
-<section id="privacy" class="terms">
-  <div class="wrap">
-    <h2>Privacy</h2>
-    <p><b>Who is responsible.</b> Privacy Officer: Finley Taverna, Owner, Charged YYJ, <a href="mailto:finleytaverna@gmail.com">finleytaverna@gmail.com</a>.</p>
-    <p><b>What we collect and why.</b> For each rental we record the card brand and last four digits (never the full card number), the station, the power bank, and the rent and return times. We use this to run your rental, charge the right amount, send refunds, handle disputes, and keep the records that tax and product-safety laws require. Your phone number or email is optional; if you give it, we use it only for your receipt and return reminders. We never send you ads unless you opt in.</p>
-    <p><b>Who sees it.</b> We don't sell your information. We share it only with the service providers that run Charged YYJ for us: Stripe (payments), our station software provider, and our email or text provider. They may store or process it outside Canada, for example in the United States or Asia, where authorities there may be able to access it.</p>
-    <p><b>How long we keep it.</b> Rental and payment records are kept as long as tax and product-safety laws require, up to 6 years. Phone numbers and emails are deleted 12 months after your last rental, unless they're needed for an open dispute.</p>
-    <p><b>Your rights.</b> Email us to see, correct or delete your information. If you're not satisfied with our answer, you can contact the Office of the Information and Privacy Commissioner for BC at <a href="https://www.oipc.bc.ca">oipc.bc.ca</a>.</p>
-  </div>
-</section>
-
-<section id="venues">
-  <div class="wrap">
-    <h2>For bars and venues</h2>
-    <div class="grid">
-      <div class="card"><h3>Free to host</h3><p>We own and maintain the station. It plugs into one outlet.</p></div>
-      <div class="card"><h3>You earn on every rental</h3><p>15% of every $9 rental, before tax, paid monthly by e-transfer with a report.</p></div>
-      <div class="card"><h3>Zero staff work</h3><p>No cash, no keys, no refunds to handle. Bartenders stop babysitting phones.</p></div>
+<!-- Layer 1: UI -->
+<main class="ui">
+  <header class="brand glow">
+    <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+      <circle cx="20" cy="20" r="18.5" fill="none" stroke="#ffffff" stroke-width="1.6"/>
+      <path transform="translate(20 20) scale(0.78) translate(-12 -12)" d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" fill="#ffffff"/>
+    </svg>
+    <div>
+      <h1 class="name">CHARGED <span>YYJ</span></h1>
+      <p class="sub">Phone charging
+Victoria BC</p>
     </div>
-    <span class="cta soon" aria-disabled="true">Venue sign-ups coming soon</span>
-  </div>
-</section>
+  </header>
 
-<footer>
-  <div class="wrap">
-    Charged YYJ, Victoria, British Columbia, Canada. Operated by Finley Taverna.<br>
-    Questions, refunds and support: <a href="mailto:finleytaverna@gmail.com">finleytaverna@gmail.com</a>
+  <div class="counter" role="img" aria-label="Rental price: $9">$9</div>
+
+  <div class="tags glow" role="group" aria-label="Station specs">
+    <button class="chip" type="button" aria-pressed="true" data-key="all">All</button>
+    <button class="chip" type="button" aria-pressed="false" data-key="slots">8 slots</button>
+    <button class="chip" type="button" aria-pressed="false" data-key="screen">10.1in screen</button>
+    <button class="chip" type="button" aria-pressed="false" data-key="qr">QR pay</button>
+    <button class="chip" type="button" aria-pressed="false" data-key="mah">5,000 mAh</button>
+    <button class="chip" type="button" aria-pressed="false" data-key="usbc">USB-C</button>
+    <button class="chip" type="button" aria-pressed="false" data-key="lightning">Lightning</button>
+    <button class="chip" type="button" aria-pressed="false" data-key="micro">Micro-USB</button>
+    <button class="chip" type="button" aria-pressed="false" data-key="volt">120 V</button>
+    <button class="chip" type="button" aria-pressed="false" data-key="return">24 h return</button>
   </div>
-</footer>
+
+  <section class="list" aria-label="The station and the power bank">
+    <article class="card" data-keys="slots screen qr">
+      <div class="thumb thumb-3d" id="station3d" tabindex="0" role="img" aria-label="3D model of the Charged YYJ station, 260 by 178 by 350 millimetres. Drag, or use the arrow keys, to turn it."></div>
+      <div class="meta"><span>Station
+3D</span><span id="station3d-hint">260 x 178 x 350 mm
+drag to turn</span></div>
+    </article>
+    <article class="card" data-keys="slots screen qr volt">
+      <div class="thumb"><img class="contain" src="img/station.png" alt="The Charged YYJ station: a screen on top and 8 power bank slots below" loading="lazy"></div>
+      <div class="meta"><span>Station
+photo</span><span>8 slots
+10.1-inch screen</span></div>
+    </article>
+    <article class="card" data-keys="mah usbc lightning micro return">
+      <div class="thumb"><img class="contain" src="img/power-bank.png" alt="A Charged YYJ power bank, front and back, with built-in Lightning, USB-C and Micro-USB cables" loading="lazy"></div>
+      <div class="meta"><span>Power bank
+5,000 mAh</span><span>Lightning, USB-C, Micro-USB
+140 g</span></div>
+    </article>
+    <article class="card" data-keys="volt slots">
+      <div class="thumb"><img class="contain" src="img/drawing-1.png" alt="Scale drawing of the station on a bar top: 260 by 178 mm footprint, 350 mm tall, one 120 V outlet" loading="lazy"></div>
+      <div class="meta"><span>Fits on the bar
+scale drawing</span><span>One 120 V outlet
+no wiring</span></div>
+    </article>
+  </section>
+
+  <section class="about glow" aria-label="About Charged YYJ">
+    <div class="block">
+      <h2>[what it is]</h2>
+      <p>Phone charging stations in bars and venues across Victoria, BC. Scan the QR code on the station, pay $9 on your phone, and take a charged power bank.</p>
+    </div>
+    <div class="block">
+      <h2>[how it works]</h2>
+      <ol>
+        <li>Scan the QR code on the screen</li>
+        <li>Pay $9 on your phone, PST included</li>
+        <li>Take a charged power bank</li>
+        <li>Return it to any Charged YYJ station within 24 hours</li>
+      </ol>
+    </div>
+    <div class="block">
+      <h2>[for bars]</h2>
+      <p>The station is free for your bar. You get 15% of every $9 rental, paid monthly. Staff never touch payments or chargers. It needs one regular outlet.</p>
+    </div>
+    <div class="block">
+      <h2>[connect]</h2>
+      <p class="line">Email: <a class="inline nocase" href="mailto:finleytaverna@gmail.com">finleytaverna@gmail.com</a></p>
+      <p class="line">Phone: <a class="inline" href="tel:+12508836094">250-883-6094</a></p>
+      <button class="link" type="button" data-open="terms" aria-haspopup="dialog">Rental terms</button>
+      <button class="link" type="button" data-open="privacy" aria-haspopup="dialog">Privacy</button>
+    </div>
+  </section>
+</main>
+
+<!-- Rental terms + privacy (required by the payment provider). Text copied verbatim from the site preview. -->
+<dialog class="legal" id="legal" aria-labelledby="legal-title">
+  <div class="dlg-head">
+    <span id="legal-title">Charged YYJ: terms and privacy</span>
+    <button class="dlg-close" type="button">Close</button>
+  </div>
+  <div class="dlg-body">
+    <section id="legal-terms">
+      <h2>Rental terms and return policy</h2>
+      <p><b>Price.</b> Each rental is $9 CAD flat for one power bank, PST included. There is no hourly charge.</p>
+      <p><b>Card hold.</b> When you pay, your card gets a temporary $39 CAD hold, not a charge. Return the power bank within 24 hours and we charge only $9; the other $30 is released. Some banks show the full $39 until the hold drops off, which can take a few business days. Because Interac debit can't hold an amount, Interac and most Canadian debit cards are declined. Visa, Mastercard and American Express credit cards work, including in Apple Pay and Google Pay.</p>
+      <p><b>Returns.</b> Return the power bank to any Charged YYJ station within 24 hours of renting it. Stations are inside venues, so they are open when the venue is open. If you give us your email when you pay, we email your receipt; you can also ask for a receipt by email.</p>
+      <p><b>If you keep it.</b> If a power bank is not returned within 24 hours, we charge the full $39 CAD hold ($9 rental plus $30 for the power bank) and the power bank is yours. If you gave us a phone number or email, we remind you before this happens. If you return it within 7 days after that, we refund the $30; email us if the refund hasn't appeared within 3 business days.</p>
+      <p><b>Refunds.</b> If a station charges you but does not release a power bank, or the power bank does not charge your phone, contact us and we will refund the rental in full. Refunds go back to the original card and usually take 5 to 10 business days to appear.</p>
+      <p><b>Care.</b> Please do not open, puncture, or leave the power bank in water or extreme heat. We never charge more than $39 in total for one rental, including a lost or damaged power bank.</p>
+    </section>
+    <section id="legal-privacy">
+      <h2>Privacy</h2>
+      <p><b>Who is responsible.</b> Privacy Officer: Finley Taverna, Owner, Charged YYJ, <a href="mailto:finleytaverna@gmail.com">finleytaverna@gmail.com</a>.</p>
+      <p><b>What we collect and why.</b> For each rental we record the card brand and last four digits (never the full card number), the station, the power bank, and the rent and return times. We use this to run your rental, charge the right amount, send refunds, handle disputes, and keep the records that tax and product-safety laws require. Your phone number or email is optional; if you give it, we use it only for your receipt and return reminders. We never send you ads unless you opt in.</p>
+      <p><b>Who sees it.</b> We don't sell your information. We share it only with the service providers that run Charged YYJ for us: Stripe (payments), our station software provider, and our email or text provider. They may store or process it outside Canada, for example in the United States or Asia, where authorities there may be able to access it.</p>
+      <p><b>How long we keep it.</b> Rental and payment records are kept as long as tax and product-safety laws require, up to 6 years. Phone numbers and emails are deleted 12 months after your last rental, unless they're needed for an open dispute.</p>
+      <p><b>Your rights.</b> Email us to see, correct or delete your information. If you're not satisfied with our answer, you can contact the Office of the Information and Privacy Commissioner for BC at <a href="https://www.oipc.bc.ca">oipc.bc.ca</a>.</p>
+    </section>
+  </div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ========================================================================
+     Shared helpers and flags
+     ======================================================================== */
+  var root = document.documentElement;
+  var reduceMQ = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  var reduced = !!(reduceMQ && reduceMQ.matches);
+  var reducedListeners = [];
+  if (reduceMQ) {
+    var onReduce = function () {
+      reduced = reduceMQ.matches;
+      reducedListeners.forEach(function (fn) { fn(reduced); });
+    };
+    if (reduceMQ.addEventListener) reduceMQ.addEventListener('change', onReduce);
+    else if (reduceMQ.addListener) reduceMQ.addListener(onReduce);
+  }
+  function mq(q) { return !!(window.matchMedia && window.matchMedia(q).matches); }
+  var isMobile = mq('(max-width: 760px)') ||
+    (mq('(pointer: coarse)') && Math.min(screen.width, screen.height) < 820);
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function clampMap(v, a, b, c, d) { return c + (d - c) * clamp((v - a) / (b - a), 0, 1); }
+  function now() { return performance.now(); }
+
+  /* ========================================================================
+     Spec chips: highlight the cards that show that spec
+     ======================================================================== */
+  (function chips() {
+    var buttons = Array.prototype.slice.call(document.querySelectorAll('.chip'));
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.list .card'));
+    var list = document.querySelector('.list');
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-key');
+        buttons.forEach(function (b) { b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
+        var first = null;
+        cards.forEach(function (card) {
+          var keys = (card.getAttribute('data-keys') || '').split(/\s+/);
+          var match = key === 'all' || keys.indexOf(key) !== -1;
+          card.classList.toggle('dim', !match);
+          if (match && !first) first = card;
+        });
+        if (list && first && list.clientHeight) {
+          var top = key === 'all' ? 0 : first.offsetTop;
+          try { list.scrollTo({ top: top, behavior: reduced ? 'auto' : 'smooth' }); }
+          catch (e) { list.scrollTop = top; }
+        }
+      });
+    });
+  })();
+
+  /* ========================================================================
+     Legal dialog: native <dialog> (modal = focus stays inside, Esc closes)
+     ======================================================================== */
+  (function legal() {
+    var dlg = document.getElementById('legal');
+    if (!dlg) return;
+    var body = dlg.querySelector('.dlg-body');
+    var closeBtn = dlg.querySelector('.dlg-close');
+    var opener = null;
+    function close() {
+      if (typeof dlg.close === 'function') dlg.close();
+      else { dlg.removeAttribute('open'); if (opener) opener.focus(); }
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (btn) {
+      btn.addEventListener('click', function () {
+        opener = btn;
+        if (!dlg.open) {
+          if (typeof dlg.showModal === 'function') dlg.showModal();
+          else dlg.setAttribute('open', '');
+        }
+        var which = btn.getAttribute('data-open');
+        var sec = document.getElementById(which === 'privacy' ? 'legal-privacy' : 'legal-terms');
+        body.scrollTop = which === 'privacy' && sec ? Math.max(0, sec.offsetTop - 8) : 0;
+        closeBtn.focus();
+      });
+    });
+    closeBtn.addEventListener('click', close);
+    // Click on the backdrop (the dialog box itself, outside its content) closes it.
+    dlg.addEventListener('click', function (e) { if (e.target === dlg) close(); });
+    dlg.addEventListener('close', function () { if (opener && document.contains(opener)) opener.focus(); });
+  })();
+
+  /* ========================================================================
+     Shared pointer state (mouse + touch), in CSS pixels
+     ======================================================================== */
+  var pointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  var pointerPrev = { x: pointer.x, y: pointer.y };
+  function setPointer(x, y, jump) {
+    pointer.x = x; pointer.y = y;
+    if (jump) { pointerPrev.x = x; pointerPrev.y = y; }   // no streak on a fresh touch
+  }
+  window.addEventListener('pointermove', function (e) {
+    if (e.pointerType === 'touch') return;                // touches come from touch events
+    setPointer(e.clientX, e.clientY, false);
+  }, { passive: true });
+  window.addEventListener('touchstart', function (e) {
+    var t = e.touches[0]; if (t) setPointer(t.clientX, t.clientY, true);
+  }, { passive: true });
+  window.addEventListener('touchmove', function (e) {
+    var t = e.touches[0]; if (t) setPointer(t.clientX, t.clientY, false);
+  }, { passive: true });
+
+  /* ========================================================================
+     MAIN SCENE: GPU particle bolt + GPU fluid
+     ======================================================================== */
+  var canvas = document.getElementById('bg');
+  var stopMain = function () {};
+
+  function showFallback() {
+    try { stopMain(); } catch (e) { /* ignore */ }
+    root.classList.add('no-webgl');
+  }
+
+  // Raw check: can this context render into a texture of this format?
+  function canRenderTo(gl, internalFormat, type) {
+    var tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, 4, 4, 0, gl.RGBA, type, null);
+    var fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    var ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.deleteFramebuffer(fb);
+    gl.deleteTexture(tex);
+    while (gl.getError() !== gl.NO_ERROR) { /* drain */ }
+    return ok;
+  }
+
+  /* ---------------- GLSL ---------------- */
+
+  var GLSL_PRECISION = 'precision highp float;\nprecision highp int;\nprecision highp sampler2D;\n';
+
+  // Fullscreen quad vertex shader (simulation + simple passes)
+  var VERT_QUAD = GLSL_PRECISION + [
+    'varying vec2 vUv;',
+    'void main() {',
+    '  vUv = uv;',
+    '  gl_Position = vec4(position.xy, 0.0, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Fluid vertex shader: also hands neighbour texel UVs to the fragment stage
+  var VERT_FLUID = GLSL_PRECISION + [
+    'uniform vec2 uTexel;',
+    'varying vec2 vUv;',
+    'varying vec2 vL;',
+    'varying vec2 vR;',
+    'varying vec2 vT;',
+    'varying vec2 vB;',
+    'void main() {',
+    '  vUv = uv;',
+    '  vL = vUv - vec2(uTexel.x, 0.0);',
+    '  vR = vUv + vec2(uTexel.x, 0.0);',
+    '  vT = vUv + vec2(0.0, uTexel.y);',
+    '  vB = vUv - vec2(0.0, uTexel.y);',
+    '  gl_Position = vec4(position.xy, 0.0, 1.0);',
+    '}'
+  ].join('\n');
+
+  var FLUID_VARYINGS = 'varying vec2 vUv;\nvarying vec2 vL;\nvarying vec2 vR;\nvarying vec2 vT;\nvarying vec2 vB;\n';
+
+  // Splat a soft line (prev -> current pointer) into a field. Additive.
+  var FRAG_SPLAT = GLSL_PRECISION + FLUID_VARYINGS + [
+    'uniform sampler2D uTarget;',
+    'uniform vec2 uA;',
+    'uniform vec2 uB;',
+    'uniform vec3 uColor;',
+    'uniform float uRadius;',
+    'uniform float uAspect;',
+    'float segDist(vec2 p, vec2 a, vec2 b) {',
+    '  vec2 pa = p - a, ba = b - a;',
+    '  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-8), 0.0, 1.0);',
+    '  return length(pa - ba * h);',
+    '}',
+    'void main() {',
+    '  vec2 asp = vec2(uAspect, 1.0);',
+    '  float d = segDist(vUv * asp, uA * asp, uB * asp);',
+    '  float f = 1.0 - smoothstep(0.0, max(uRadius, 1e-4), d);',
+    '  f *= f;',
+    '  vec3 base = texture2D(uTarget, vUv).xyz;',
+    '  gl_FragColor = vec4(base + uColor * f, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Curl (scalar vorticity) of the velocity field
+  var FRAG_CURL = GLSL_PRECISION + FLUID_VARYINGS + [
+    'uniform sampler2D uVelocity;',
+    'void main() {',
+    '  float L = texture2D(uVelocity, vL).y;',
+    '  float R = texture2D(uVelocity, vR).y;',
+    '  float T = texture2D(uVelocity, vT).x;',
+    '  float B = texture2D(uVelocity, vB).x;',
+    '  float vorticity = R - L - T + B;',
+    '  gl_FragColor = vec4(0.5 * vorticity, 0.0, 0.0, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Vorticity confinement: puts the small swirls back
+  var FRAG_VORTICITY = GLSL_PRECISION + FLUID_VARYINGS + [
+    'uniform sampler2D uVelocity;',
+    'uniform sampler2D uCurl;',
+    'uniform float uCurlStrength;',
+    'uniform float uDt;',
+    'void main() {',
+    '  float L = texture2D(uCurl, vL).x;',
+    '  float R = texture2D(uCurl, vR).x;',
+    '  float T = texture2D(uCurl, vT).x;',
+    '  float B = texture2D(uCurl, vB).x;',
+    '  float C = texture2D(uCurl, vUv).x;',
+    '  vec2 force = 0.5 * vec2(abs(T) - abs(B), abs(R) - abs(L));',
+    '  force /= length(force) + 0.0001;',
+    '  force *= uCurlStrength * C;',
+    '  force.y *= -1.0;',
+    '  vec2 vel = texture2D(uVelocity, vUv).xy + force * uDt;',
+    '  vel = clamp(vel, vec2(-1000.0), vec2(1000.0));',
+    '  gl_FragColor = vec4(vel, 0.0, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Divergence, with solid walls at the edges
+  var FRAG_DIVERGENCE = GLSL_PRECISION + FLUID_VARYINGS + [
+    'uniform sampler2D uVelocity;',
+    'void main() {',
+    '  float L = texture2D(uVelocity, vL).x;',
+    '  float R = texture2D(uVelocity, vR).x;',
+    '  float T = texture2D(uVelocity, vT).y;',
+    '  float B = texture2D(uVelocity, vB).y;',
+    '  vec2 C = texture2D(uVelocity, vUv).xy;',
+    '  if (vL.x < 0.0) L = -C.x;',
+    '  if (vR.x > 1.0) R = -C.x;',
+    '  if (vT.y > 1.0) T = -C.y;',
+    '  if (vB.y < 0.0) B = -C.y;',
+    '  gl_FragColor = vec4(0.5 * (R - L + T - B), 0.0, 0.0, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Scale a field (used for pressure dissipation)
+  var FRAG_SCALE = GLSL_PRECISION + FLUID_VARYINGS + [
+    'uniform sampler2D uTexture;',
+    'uniform float uValue;',
+    'void main() { gl_FragColor = uValue * texture2D(uTexture, vUv); }'
+  ].join('\n');
+
+  // One Jacobi iteration of the pressure solve
+  var FRAG_PRESSURE = GLSL_PRECISION + FLUID_VARYINGS + [
+    'uniform sampler2D uPressure;',
+    'uniform sampler2D uDivergence;',
+    'void main() {',
+    '  float L = texture2D(uPressure, vL).x;',
+    '  float R = texture2D(uPressure, vR).x;',
+    '  float T = texture2D(uPressure, vT).x;',
+    '  float B = texture2D(uPressure, vB).x;',
+    '  float div = texture2D(uDivergence, vUv).x;',
+    '  gl_FragColor = vec4((L + R + B + T - div) * 0.25, 0.0, 0.0, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Subtract the pressure gradient: makes the velocity divergence-free
+  var FRAG_GRADIENT = GLSL_PRECISION + FLUID_VARYINGS + [
+    'uniform sampler2D uPressure;',
+    'uniform sampler2D uVelocity;',
+    'void main() {',
+    '  float L = texture2D(uPressure, vL).x;',
+    '  float R = texture2D(uPressure, vR).x;',
+    '  float T = texture2D(uPressure, vT).x;',
+    '  float B = texture2D(uPressure, vB).x;',
+    '  vec2 vel = texture2D(uVelocity, vUv).xy - vec2(R - L, T - B);',
+    '  gl_FragColor = vec4(vel, 0.0, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Semi-Lagrangian advection (velocity is in sim texels per second)
+  var FRAG_ADVECT = GLSL_PRECISION + FLUID_VARYINGS + [
+    'uniform sampler2D uVelocity;',
+    'uniform sampler2D uSource;',
+    'uniform vec2 uTexel;',
+    'uniform float uDt;',
+    'uniform float uDissipation;',
+    'void main() {',
+    '  vec2 coord = vUv - uDt * texture2D(uVelocity, vUv).xy * uTexel;',
+    '  vec4 result = uDissipation * texture2D(uSource, coord);',
+    '  gl_FragColor = vec4(result.xyz, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Density -> viewport-sized mask, alpha = max(r, g, b)
+  var FRAG_MASK = GLSL_PRECISION + [
+    'uniform sampler2D uTexture;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '  vec3 d = texture2D(uTexture, vUv).rgb;',
+    '  float a = clamp(max(d.r, max(d.g, d.b)), 0.0, 1.0);',
+    '  gl_FragColor = vec4(clamp(d, 0.0, 1.0), a);',
+    '}'
+  ].join('\n');
+
+  // Particle simulation: one pass per frame over the position texture
+  var FRAG_SIM = GLSL_PRECISION + [
+    'uniform sampler2D uPositions;',
+    'uniform sampler2D uOrigin;',
+    'uniform sampler2D uRandom;',
+    'uniform float uTime;',
+    'uniform float uHZ;',
+    'uniform float uMotion;',
+    'varying vec2 vUv;',
+    '',
+    '// Lightning bolt outline, 0.7 units tall, centred on the origin.',
+    'const int N = 6;',
+    'const vec2 BOLT[6] = vec2[6](',
+    '  vec2( 0.035,  0.350),',
+    '  vec2(-0.315, -0.070),',
+    '  vec2( 0.000, -0.070),',
+    '  vec2(-0.035, -0.350),',
+    '  vec2( 0.315,  0.070),',
+    '  vec2( 0.000,  0.070)',
+    ');',
+    'const float HALF_DEPTH = 0.055;',
+    'const float ROUND = 0.02;',
+    '',
+    '// Exact signed distance to a 2D polygon (Inigo Quilez)',
+    'float sdPolygon(vec2 p) {',
+    '  float d = dot(p - BOLT[0], p - BOLT[0]);',
+    '  float s = 1.0;',
+    '  int j = N - 1;',
+    '  for (int i = 0; i < N; i++) {',
+    '    vec2 e = BOLT[j] - BOLT[i];',
+    '    vec2 w = p - BOLT[i];',
+    '    vec2 b = w - e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);',
+    '    d = min(d, dot(b, b));',
+    '    bvec3 c = bvec3(p.y >= BOLT[i].y, p.y < BOLT[j].y, e.x * w.y > e.y * w.x);',
+    '    if (all(c) || all(not(c))) s *= -1.0;',
+    '    j = i;',
+    '  }',
+    '  return s * sqrt(d);',
+    '}',
+    '',
+    '// Bolt polygon extruded along z with rounded edges',
+    'float sdShape(vec3 p) {',
+    '  float r = length(p);',
+    '  if (r > 0.8) return r - 0.7;',
+    '  float d2 = sdPolygon(p.xy) + ROUND;',
+    '  vec2 w = vec2(d2, abs(p.z) - (HALF_DEPTH - ROUND));',
+    '  return min(max(w.x, w.y), 0.0) + length(max(w, 0.0)) - ROUND;',
+    '}',
+    '',
+    'vec3 sdfNormal(vec3 p) {',
+    '  const vec2 e = vec2(0.001, 0.0);',
+    '  vec3 n = vec3(',
+    '    sdShape(p + e.xyy) - sdShape(p - e.xyy),',
+    '    sdShape(p + e.yxy) - sdShape(p - e.yxy),',
+    '    sdShape(p + e.yyx) - sdShape(p - e.yyx));',
+    '  float l = length(n);',
+    '  return l > 1e-7 ? n / l : vec3(0.0, 0.0, 1.0);',
+    '}',
+    '',
+    '// Analytic curl of three sine-sum potentials (divergence-free drift)',
+    'vec3 curlNoise(vec3 p) {',
+    '  const float F1 = 7.0;',
+    '  const float F2 = 13.0;',
+    '  vec3 c = vec3(',
+    '    0.5 * F2 * cos(F2 * p.y + 5.2) - F1 * cos(F1 * p.z + 2.9),',
+    '    0.5 * F2 * cos(F2 * p.z + 0.3) - F1 * cos(F1 * p.x + 0.6),',
+    '    0.5 * F2 * cos(F2 * p.x + 4.1) - F1 * cos(F1 * p.y + 1.7));',
+    '  float l = length(c);',
+    '  return l > 1e-6 ? c / l : vec3(0.0);',
+    '}',
+    '',
+    'void main() {',
+    '  vec3 pos = texture2D(uPositions, vUv).xyz;',
+    '  vec3 origin = texture2D(uOrigin, vUv).xyz;',
+    '  vec4 rnd = texture2D(uRandom, vUv);',
+    '  if (any(isnan(pos)) || any(isinf(pos))) pos = origin * 0.5;',
+    '',
+    '  if (length(pos) > 0.7) pos /= 2.0;',
+    '',
+    '  // slow ambient drift',
+    '  pos += curlNoise(pos * 0.1 + uTime * 0.05) * 0.0002 * uHZ * uMotion;',
+    '',
+    '  vec3 gradient = sdfNormal(pos);',
+    '  float sdf = sdShape(pos);',
+    '',
+    '  // swirl along the surface',
+    '  pos += cross(normalize(pos + vec3(1e-5)), gradient) * 0.0005 * uHZ * uMotion;',
+    '',
+    '  // pull onto the surface; each particle eases in, staggered over ~3 s',
+    '  float form = clamp((uTime - rnd.w * 1.5) / 1.5, 0.0, 1.0);',
+    '  form *= form;',
+    '  pos += -gradient * sdf * 0.5 * form;',
+    '',
+    '  // weak spring back to the random origin',
+    '  pos += (origin - pos) * 0.0002 * uHZ;',
+    '',
+    '  gl_FragColor = vec4(pos, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Cursor push, kept as a separate decaying offset per particle.
+  // Integrating the push straight into the surface positions (as in the
+  // original brief) slides particles along the surface for good and the bolt
+  // never heals; a decaying offset gives the same swirl and heals in ~1-2 s.
+  var FRAG_OFFSET = GLSL_PRECISION + [
+    'uniform sampler2D uOffset;',
+    'uniform sampler2D uPositions;',
+    'uniform sampler2D uFluidVel;',
+    'uniform sampler2D uFluidMask;',
+    'uniform float uHZ;',
+    'uniform mat4 uMVP;',
+    'uniform mat3 uFlowMat;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '  vec3 off = texture2D(uOffset, vUv).xyz;',
+    '  vec3 pos = texture2D(uPositions, vUv).xyz;',
+    '  if (any(isnan(off)) || any(isinf(off))) off = vec3(0.0);',
+    '  off *= pow(0.92, uHZ);                         // heal',
+    '  vec4 clip = uMVP * vec4(pos + off, 1.0);',
+    '  if (clip.w > 0.0) {',
+    '    vec2 suv = clip.xy / clip.w * 0.5 + 0.5;',
+    '    if (suv.x > 0.0 && suv.x < 1.0 && suv.y > 0.0 && suv.y < 1.0) {',
+    '      // screen-space fluid velocity, rotated from camera space into object space',
+    '      vec3 flow = uFlowMat * vec3(texture2D(uFluidVel, suv).xy, 0.0);',
+    '      float mask = texture2D(uFluidMask, suv).a;',
+    '      off += flow * 0.0001 * uHZ * 0.4 * 0.6 * mask;',
+    '    }',
+    '  }',
+    '  float l = length(off);',
+    '  if (l > 0.3) off *= 0.3 / l;',
+    '  gl_FragColor = vec4(off, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Points: position comes from the simulation texture (+ cursor offset)
+  var VERT_POINTS = GLSL_PRECISION + [
+    'uniform sampler2D uPositions;',
+    'uniform sampler2D uOffset;',
+    'uniform float uDPR;',
+    'uniform float uSizeBoost;',
+    'attribute vec4 aRandom;',
+    'varying vec4 vRandom;',
+    'varying float vScale;',
+    'void main() {',
+    '  vec3 p = texture2D(uPositions, position.xy).xyz + texture2D(uOffset, position.xy).xyz;',
+    '  // a few stray points float slightly outside the surface. Kept small: with',
+    '  // a pointy bolt a 1.5x push draws radial streaks off the tips into the UI.',
+    '  p *= mix(1.0, 1.15, pow(aRandom.y, 150.0));',
+    '  vec4 mv = modelViewMatrix * vec4(p, 1.0);',
+    '  float dist = max(-mv.z, 0.001);',
+    '  vScale = smoothstep(3.0, 15.0, dist) * mix(0.5, 1.0, aRandom.z);',
+    '  vRandom = aRandom;',
+    '  gl_PointSize = 0.04 * uDPR * 2.0 * vScale * (1000.0 / dist) * uSizeBoost;',
+    '  gl_Position = projectionMatrix * mv;',
+    '}'
+  ].join('\n');
+
+  var FRAG_POINTS = GLSL_PRECISION + [
+    'uniform sampler2D uMatcap;',
+    'uniform vec3 uAccent;',
+    'uniform float uTime;',
+    'uniform float uGain;      // overall exposure, lower when there are many points',
+    'varying vec4 vRandom;',
+    'varying float vScale;',
+    'vec3 softLight(vec3 a, vec3 b) {',
+    '  vec3 lo = 2.0 * a * b + a * a * (1.0 - 2.0 * b);',
+    '  vec3 hi = sqrt(max(a, 0.0)) * (2.0 * b - 1.0) + 2.0 * a * (1.0 - b);',
+    '  return mix(lo, hi, step(0.5, b));',
+    '}',
+    'vec3 overlay(vec3 a, vec3 b) {',
+    '  vec3 lo = 2.0 * a * b;',
+    '  vec3 hi = 1.0 - 2.0 * (1.0 - a) * (1.0 - b);',
+    '  return mix(lo, hi, step(0.5, a));',
+    '}',
+    'vec2 rotate(vec2 v, float a) {',
+    '  float s = sin(a), c = cos(a);',
+    '  return mat2(c, -s, s, c) * v;',
+    '}',
+    'void main() {',
+    '  vec2 c = gl_PointCoord * 2.0 - 1.0;',
+    '  if (dot(c, c) > 1.0) discard;',
+    '  if (vScale < 0.1) discard;',
+    '  vec3 col = vec3(mix(0.0, 0.2, vRandom.x));',
+    '  col = mix(col, uAccent, pow(vRandom.z, 100.0));',
+    '  float sparkle = 0.5 + (0.4 + sin(uTime * 4.0 + vRandom.y * 20.0)) * pow(vRandom.z, 10.0) * 2.5;',
+    '  col *= sparkle;',
+    '  vec2 muv = rotate(gl_PointCoord - 0.5, sin(uTime + vRandom.z * 20.0) * 0.5 + 1.0) + 0.5;',
+    '  vec3 m = texture2D(uMatcap, muv).rgb;',
+    '  col = mix(col, softLight(col, m), 0.8);',
+    '  col = mix(col, overlay(col, m), 0.2);',
+    '  gl_FragColor = vec4(col * uGain, 1.0);',
+    '}'
+  ].join('\n');
+
+  /* ---------------- Scene setup ---------------- */
+
+  function startScene(gl) {
+    var T = window.THREE;
+
+    // Float targets: prefer RGBA32F for positions, RGBA16F for the fluid.
+    gl.getExtension('EXT_color_buffer_float');
+    gl.getExtension('EXT_color_buffer_half_float');
+    var floatLinear = !!gl.getExtension('OES_texture_float_linear');
+    var canFloat = canRenderTo(gl, gl.RGBA32F, gl.FLOAT);
+    var canHalf = canRenderTo(gl, gl.RGBA16F, gl.HALF_FLOAT);
+    if (!canFloat && !canHalf) throw new Error('No float render targets');
+    var posType = canFloat ? T.FloatType : T.HalfFloatType;
+    var fluidType = canHalf ? T.HalfFloatType : T.FloatType;
+    var fluidFilter = (fluidType === T.HalfFloatType || floatLinear) ? T.LinearFilter : T.NearestFilter;
+
+    var renderer = new T.WebGLRenderer({ canvas: canvas, context: gl, antialias: false, alpha: false });
+    if (!renderer.capabilities.isWebGL2) throw new Error('WebGL2 required');
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    renderer.setClearColor(0x000000, 1);
+    renderer.autoClear = false;
+
+    // ---------- fullscreen pass helper ----------
+    var quadScene = new T.Scene();
+    var quadCam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    var quad = new T.Mesh(new T.PlaneGeometry(2, 2));
+    quad.frustumCulled = false;
+    quadScene.add(quad);
+    function mat(vert, frag, uniforms) {
+      return new T.ShaderMaterial({
+        vertexShader: vert, fragmentShader: frag, uniforms: uniforms,
+        depthTest: false, depthWrite: false, blending: T.NoBlending
+      });
+    }
+    function pass(material, target) {
+      quad.material = material;
+      renderer.setRenderTarget(target);
+      renderer.render(quadScene, quadCam);
+    }
+    function makeRT(w, h, type, filter) {
+      return new T.WebGLRenderTarget(w, h, {
+        type: type, format: T.RGBAFormat, minFilter: filter, magFilter: filter,
+        wrapS: T.ClampToEdgeWrapping, wrapT: T.ClampToEdgeWrapping,
+        depthBuffer: false, stencilBuffer: false, generateMipmaps: false
+      });
+    }
+    function makeDouble(w, h, type, filter) {
+      var a = makeRT(w, h, type, filter), b = makeRT(w, h, type, filter);
+      return {
+        get read() { return a; },
+        get write() { return b; },
+        swap: function () { var t = a; a = b; b = t; }
+      };
+    }
+    function clearRT(rt) {
+      renderer.setRenderTarget(rt);
+      renderer.setClearColor(0x000000, 0);
+      renderer.clear(true, false, false);
+      renderer.setClearColor(0x000000, 1);
+    }
+
+    // ---------- GPU fluid ----------
+    var SIM_RES = 256, DYE_RES = 512;
+    var FLUID = { velDiss: 0.98, dyeDiss: 0.97, pressure: 0.95, iterations: 5, curl: 30, dt: 1 / 60 };
+    var texel = { value: new T.Vector2(1 / SIM_RES, 1 / SIM_RES) };
+
+    var velocity = makeDouble(SIM_RES, SIM_RES, fluidType, fluidFilter);
+    var pressure = makeDouble(SIM_RES, SIM_RES, fluidType, T.NearestFilter);
+    var divergenceRT = makeRT(SIM_RES, SIM_RES, fluidType, T.NearestFilter);
+    var curlRT = makeRT(SIM_RES, SIM_RES, fluidType, T.NearestFilter);
+    var dye = makeDouble(DYE_RES, DYE_RES, fluidType, fluidFilter);
+    var maskRT = makeRT(Math.max(1, Math.ceil(window.innerWidth / 2)), Math.max(1, Math.ceil(window.innerHeight / 2)),
+      T.UnsignedByteType, T.LinearFilter);
+
+    var splatMat = mat(VERT_FLUID, FRAG_SPLAT, {
+      uTexel: texel, uTarget: { value: null }, uA: { value: new T.Vector2() }, uB: { value: new T.Vector2() },
+      uColor: { value: new T.Vector3() }, uRadius: { value: 0.1 }, uAspect: { value: 1 }
+    });
+    var curlMat = mat(VERT_FLUID, FRAG_CURL, { uTexel: texel, uVelocity: { value: null } });
+    var vortMat = mat(VERT_FLUID, FRAG_VORTICITY, {
+      uTexel: texel, uVelocity: { value: null }, uCurl: { value: null },
+      uCurlStrength: { value: FLUID.curl }, uDt: { value: FLUID.dt }
+    });
+    var divMat = mat(VERT_FLUID, FRAG_DIVERGENCE, { uTexel: texel, uVelocity: { value: null } });
+    var scaleMat = mat(VERT_FLUID, FRAG_SCALE, { uTexel: texel, uTexture: { value: null }, uValue: { value: FLUID.pressure } });
+    var pressureMat = mat(VERT_FLUID, FRAG_PRESSURE, { uTexel: texel, uPressure: { value: null }, uDivergence: { value: null } });
+    var gradMat = mat(VERT_FLUID, FRAG_GRADIENT, { uTexel: texel, uPressure: { value: null }, uVelocity: { value: null } });
+    var advectMat = mat(VERT_FLUID, FRAG_ADVECT, {
+      uTexel: texel, uVelocity: { value: null }, uSource: { value: null },
+      uDt: { value: FLUID.dt }, uDissipation: { value: 1 }
+    });
+    var maskMat = mat(VERT_QUAD, FRAG_MASK, { uTexture: { value: null } });
+
+    function splat(ax, ay, bx, by, vx, vy, radius) {
+      var u = splatMat.uniforms;
+      u.uA.value.set(ax, ay);
+      u.uB.value.set(bx, by);
+      u.uRadius.value = radius;
+      u.uAspect.value = window.innerWidth / Math.max(1, window.innerHeight);
+      // velocity (additive)
+      u.uTarget.value = velocity.read.texture;
+      u.uColor.value.set(vx, vy, 1);
+      pass(splatMat, velocity.write); velocity.swap();
+      // density (white)
+      u.uTarget.value = dye.read.texture;
+      u.uColor.value.set(1, 1, 1);
+      pass(splatMat, dye.write); dye.swap();
+    }
+
+    function stepFluid() {
+      curlMat.uniforms.uVelocity.value = velocity.read.texture;
+      pass(curlMat, curlRT);
+
+      vortMat.uniforms.uVelocity.value = velocity.read.texture;
+      vortMat.uniforms.uCurl.value = curlRT.texture;
+      pass(vortMat, velocity.write); velocity.swap();
+
+      divMat.uniforms.uVelocity.value = velocity.read.texture;
+      pass(divMat, divergenceRT);
+
+      scaleMat.uniforms.uTexture.value = pressure.read.texture;
+      scaleMat.uniforms.uValue.value = FLUID.pressure;
+      pass(scaleMat, pressure.write); pressure.swap();
+
+      pressureMat.uniforms.uDivergence.value = divergenceRT.texture;
+      for (var i = 0; i < FLUID.iterations; i++) {
+        pressureMat.uniforms.uPressure.value = pressure.read.texture;
+        pass(pressureMat, pressure.write); pressure.swap();
+      }
+
+      gradMat.uniforms.uPressure.value = pressure.read.texture;
+      gradMat.uniforms.uVelocity.value = velocity.read.texture;
+      pass(gradMat, velocity.write); velocity.swap();
+
+      advectMat.uniforms.uVelocity.value = velocity.read.texture;
+      advectMat.uniforms.uSource.value = velocity.read.texture;
+      advectMat.uniforms.uDissipation.value = FLUID.velDiss;
+      pass(advectMat, velocity.write); velocity.swap();
+
+      advectMat.uniforms.uVelocity.value = velocity.read.texture;
+      advectMat.uniforms.uSource.value = dye.read.texture;
+      advectMat.uniforms.uDissipation.value = FLUID.dyeDiss;
+      pass(advectMat, dye.write); dye.swap();
+
+      maskMat.uniforms.uTexture.value = dye.read.texture;
+      pass(maskMat, maskRT);
+    }
+
+    function clearFluid() {
+      [velocity.read, velocity.write, pressure.read, pressure.write, dye.read, dye.write,
+        divergenceRT, curlRT, maskRT].forEach(clearRT);
+    }
+    clearFluid();
+
+    // ---------- particle data ----------
+    var SIZE = isMobile ? 128 : 512;            // 16,384 or 262,144 points
+    var COUNT = SIZE * SIZE;
+    var originData = new Float32Array(COUNT * 4);
+    var randomData = new Float32Array(COUNT * 4);
+    var lookup = new Float32Array(COUNT * 3);
+    for (var i = 0; i < COUNT; i++) {
+      originData[i * 4] = Math.random() * 2 - 1;
+      originData[i * 4 + 1] = Math.random() * 2 - 1;
+      originData[i * 4 + 2] = Math.random() * 2 - 1;
+      originData[i * 4 + 3] = 1;
+      randomData[i * 4] = Math.random();
+      randomData[i * 4 + 1] = Math.random();
+      randomData[i * 4 + 2] = Math.random();
+      randomData[i * 4 + 3] = Math.random();
+      lookup[i * 3] = ((i % SIZE) + 0.5) / SIZE;
+      lookup[i * 3 + 1] = (Math.floor(i / SIZE) + 0.5) / SIZE;
+      lookup[i * 3 + 2] = 0;
+    }
+    function dataTex(data) {
+      var t = new T.DataTexture(data, SIZE, SIZE, T.RGBAFormat, T.FloatType);
+      t.minFilter = T.NearestFilter; t.magFilter = T.NearestFilter;
+      t.generateMipmaps = false; t.needsUpdate = true;
+      return t;
+    }
+    var originTex = dataTex(originData);
+    var randomTex = dataTex(randomData);
+    var posRT = [makeRT(SIZE, SIZE, posType, T.NearestFilter), makeRT(SIZE, SIZE, posType, T.NearestFilter)];
+    var posIdx = 0, firstSim = true;
+    // cursor offsets (half float is plenty; they are small and short-lived)
+    var offType = canHalf ? T.HalfFloatType : T.FloatType;
+    var offRT = [makeRT(SIZE, SIZE, offType, T.NearestFilter), makeRT(SIZE, SIZE, offType, T.NearestFilter)];
+    var offIdx = 0;
+    clearRT(offRT[0]); clearRT(offRT[1]);
+
+    var simMat = mat(VERT_QUAD, FRAG_SIM, {
+      uPositions: { value: originTex }, uOrigin: { value: originTex }, uRandom: { value: randomTex },
+      uTime: { value: 0 }, uHZ: { value: 1 }, uMotion: { value: reduced ? 0.15 : 1 }
+    });
+    var offsetMat = mat(VERT_QUAD, FRAG_OFFSET, {
+      uOffset: { value: offRT[0].texture }, uPositions: { value: originTex },
+      uFluidVel: { value: velocity.read.texture }, uFluidMask: { value: maskRT.texture },
+      uHZ: { value: 1 }, uMVP: { value: new T.Matrix4() }, uFlowMat: { value: new T.Matrix3() }
+    });
+
+    // ---------- procedural matcap: soft grey sphere ----------
+    var mc = document.createElement('canvas');
+    mc.width = mc.height = 64;
+    var g = mc.getContext('2d');
+    g.fillStyle = '#2e2e2e'; g.fillRect(0, 0, 64, 64);
+    var grad = g.createRadialGradient(24, 20, 2, 32, 32, 32);
+    grad.addColorStop(0, '#f4f4f4');
+    grad.addColorStop(0.35, '#bdbdbd');
+    grad.addColorStop(0.75, '#6e6e6e');
+    grad.addColorStop(1, '#2e2e2e');
+    g.fillStyle = grad; g.beginPath(); g.arc(32, 32, 32, 0, Math.PI * 2); g.fill();
+    var matcap = new T.CanvasTexture(mc);
+
+    // ---------- points ----------
+    var geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.BufferAttribute(lookup, 3));
+    geo.setAttribute('aRandom', new T.BufferAttribute(randomData, 4));
+    var pointsMat = new T.ShaderMaterial({
+      vertexShader: VERT_POINTS, fragmentShader: FRAG_POINTS,
+      uniforms: {
+        uPositions: { value: originTex }, uOffset: { value: offRT[0].texture },
+        uDPR: { value: renderer.getPixelRatio() },
+        uSizeBoost: { value: isMobile ? 1.6 : 1 }, uMatcap: { value: matcap },
+        uAccent: { value: new T.Color(0xf5c518) }, uTime: { value: 0 },
+        uGain: { value: isMobile ? 0.75 : 0.6 }
+      },
+      transparent: true, blending: T.AdditiveBlending, depthTest: true, depthWrite: false
+    });
+    var points = new T.Points(geo, pointsMat);
+    points.frustumCulled = false;
+
+    var scene = new T.Scene();
+    var group = new T.Group();
+    group.add(points);
+    scene.add(group);
+
+    var camera = new T.PerspectiveCamera(30, window.innerWidth / Math.max(1, window.innerHeight), 0.1, 1000);
+    var BASE = new T.Vector3(-1.17, 0, 6);
+    camera.position.copy(BASE);
+    camera.lookAt(0, 0, 0);
+    var baseCam = camera.clone();
+    var ORIGIN = new T.Vector3(0, 0, 0);
+
+    // ---------- layout: put the bolt in the free space between the columns ----------
+    var BOLT_H = 0.7, BOLT_W = 0.63;
+    var tmpV = new T.Vector3(), tmpDir = new T.Vector3();
+    function layout() {
+      var w = window.innerWidth, h = Math.max(1, window.innerHeight);
+      var aspect = w / h;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(w, h, false);
+      pointsMat.uniforms.uDPR.value = renderer.getPixelRatio();
+      maskRT.setSize(Math.max(1, Math.ceil(w / 2)), Math.max(1, Math.ceil(h / 2)));
+      camera.aspect = aspect; camera.updateProjectionMatrix();
+
+      baseCam.aspect = aspect; baseCam.updateProjectionMatrix();
+      baseCam.position.copy(BASE); baseCam.lookAt(ORIGIN); baseCam.updateMatrixWorld();
+
+      // Measure the UI so the bolt sits in the space it leaves free.
+      var aboutEl = document.querySelector('.about');
+      var listEl = document.querySelector('.list');
+      var brandEl = document.querySelector('.brand');
+      var aboutR = aboutEl ? aboutEl.getBoundingClientRect() : null;
+      var listR = listEl ? listEl.getBoundingClientRect() : null;
+      var brandR = brandEl ? brandEl.getBoundingClientRect() : null;
+      var nx, ny, wantW, maxHFrac;
+      if (w <= 760) {
+        // Phone: text column sits at the bottom; use the band between brand and text.
+        var topPx = (brandR ? brandR.bottom : 70) + 12;
+        var botPx = aboutR && aboutR.height ? aboutR.top - 8 : h * 0.5;
+        botPx = Math.max(botPx, topPx + h * 0.24);       // if the text is tall, overlap it a little
+        nx = 0;
+        ny = 1 - ((topPx + botPx) / 2) / h * 2;
+        maxHFrac = Math.min(0.6, ((botPx - topPx) / h) * 0.92);
+        wantW = 0.8;
+      } else {
+        // Desktop: between the card list and the text column.
+        var leftPx = listR && listR.width ? listR.right + 24 : 24;
+        var rightPx = aboutR && aboutR.width ? aboutR.left - 24 : w - 24;
+        var free = Math.max(160, rightPx - leftPx);
+        nx = ((leftPx + rightPx) / 2) / w * 2 - 1;
+        ny = 0.02;
+        // Keep the bolt (and its outer scatter) inside the free band so it never
+        // runs under the card list or the text column.
+        wantW = Math.min(1, (free * 0.82) / w);
+        maxHFrac = 0.6;
+      }
+      // Ray from the base camera through (nx, ny), hit the plane z = -1.
+      tmpV.set(nx, ny, 0.5).unproject(baseCam);
+      tmpDir.copy(tmpV).sub(baseCam.position).normalize();
+      var t = (-1 - baseCam.position.z) / tmpDir.z;
+      group.position.copy(baseCam.position).addScaledVector(tmpDir, t);
+
+      var viewH = 2 * t * Math.tan(T.MathUtils.degToRad(camera.fov / 2));
+      var viewW = viewH * aspect;
+      var s = Math.min(5, (maxHFrac * viewH) / BOLT_H, (wantW * viewW) / BOLT_W);
+      group.scale.set(s, s, s * 1.2);
+      group.rotation.set(T.MathUtils.degToRad(-6), T.MathUtils.degToRad(24), T.MathUtils.degToRad(3));
+    }
+    layout();
+
+    // ---------- frame loop ----------
+    var mvp = new T.Matrix4(), rotA = new T.Matrix4(), rotB = new T.Matrix4();
+    var gazeTarget = new T.Vector3();
+    var rafId = 0, running = false, lastT = 0, elapsed = 0;
+    var lastSplatAt = -1e9, fluidOn = false, checked = false;
+
+    function frame(tms) {
+      if (!running) return;
+      rafId = requestAnimationFrame(frame);
+      var dt = lastT ? clamp((tms - lastT) / 1000, 0, 1 / 15) : 1 / 60;
+      lastT = tms;
+      elapsed += dt;
+      var HZ = dt * 60;
+      var w = window.innerWidth, h = Math.max(1, window.innerHeight);
+
+      // pointer -> fluid splat
+      var dx = pointer.x - pointerPrev.x, dy = pointer.y - pointerPrev.y;
+      var len = Math.sqrt(dx * dx + dy * dy);
+      if (len > 0.01 && !reduced) {
+        var radius = clampMap(len, 0, 5, 0, 60) * 0.6 * (isMobile ? 0.8 : 1);
+        var mult = clampMap(len, 0, 15, 0, 10);
+        var t0 = now();
+        var sx = (t0 - lastSplatAt > 50) ? pointer.x : pointerPrev.x;
+        var sy = (t0 - lastSplatAt > 50) ? pointer.y : pointerPrev.y;
+        splat(sx / w, 1 - sy / h, pointer.x / w, 1 - pointer.y / h,
+          clamp(dx * mult, -800, 800), clamp(-dy * mult, -800, 800), radius / 200);
+        lastSplatAt = t0;
+      }
+      pointerPrev.x = pointer.x; pointerPrev.y = pointer.y;
+
+      // run the fluid only while there is something in it
+      var active = now() - lastSplatAt < 6000;
+      if (active) stepFluid();
+      else if (fluidOn) { clearFluid(); clearRT(offRT[0]); clearRT(offRT[1]); }
+      fluidOn = active;
+
+      // gaze camera
+      var mx = (pointer.x / w) * 2 - 1, my = (pointer.y / h) * 2 - 1;
+      if (reduced) gazeTarget.copy(BASE);
+      else gazeTarget.set(BASE.x - mx, BASE.y + my * 2, BASE.z);
+      camera.position.lerp(gazeTarget, 1 - Math.pow(0.95, HZ));
+      camera.lookAt(ORIGIN);
+      camera.updateMatrixWorld();
+      group.updateMatrixWorld();
+
+      // particle simulation pass (surface dynamics)
+      var su = simMat.uniforms;
+      su.uTime.value = elapsed + (reduced ? 3 : 0);
+      su.uHZ.value = HZ;
+      su.uMotion.value = reduced ? 0.15 : 1;
+      su.uPositions.value = firstSim ? originTex : posRT[posIdx].texture;
+      pass(simMat, posRT[1 - posIdx]);
+      posIdx = 1 - posIdx;
+      firstSim = false;
+
+      // cursor offset pass (only while the fluid has something in it)
+      if (fluidOn) {
+        var ou = offsetMat.uniforms;
+        mvp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).multiply(group.matrixWorld);
+        ou.uMVP.value.copy(mvp);
+        rotA.extractRotation(camera.matrixWorld);                  // view -> world
+        rotB.extractRotation(group.matrixWorld).transpose();       // world -> object
+        ou.uFlowMat.value.setFromMatrix4(rotB.multiply(rotA));
+        ou.uHZ.value = HZ;
+        ou.uFluidVel.value = velocity.read.texture;
+        ou.uFluidMask.value = maskRT.texture;
+        ou.uPositions.value = posRT[posIdx].texture;
+        ou.uOffset.value = offRT[offIdx].texture;
+        pass(offsetMat, offRT[1 - offIdx]);
+        offIdx = 1 - offIdx;
+      }
+
+      // draw the particles
+      pointsMat.uniforms.uPositions.value = posRT[posIdx].texture;
+      pointsMat.uniforms.uOffset.value = offRT[offIdx].texture;
+      pointsMat.uniforms.uTime.value = elapsed;
+      renderer.setRenderTarget(null);
+      renderer.clear(true, true, false);
+      renderer.render(scene, camera);
+
+      // After the first frame every program has been linked: bail out on any failure.
+      if (!checked) {
+        checked = true;
+        var progs = renderer.info.programs || [];
+        for (var p = 0; p < progs.length; p++) {
+          if (progs[p].diagnostics && progs[p].diagnostics.runnable === false) { showFallback(); return; }
+        }
+      }
+    }
+
+    function start() {
+      if (running || document.hidden) return;
+      running = true; lastT = 0;
+      rafId = requestAnimationFrame(frame);
+    }
+    function stop() { running = false; cancelAnimationFrame(rafId); }
+    stopMain = stop;
+
+    document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); else start(); });
+    var resizeQueued = false;
+    window.addEventListener('resize', function () {
+      if (resizeQueued) return;
+      resizeQueued = true;
+      requestAnimationFrame(function () { resizeQueued = false; layout(); });
+    });
+    canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); showFallback(); }, false);
+
+    start();
+  }
+
+  var mainGL = null;
+  try {
+    mainGL = canvas.getContext('webgl2', {
+      alpha: false, antialias: false, depth: true, stencil: false,
+      premultipliedAlpha: true, powerPreference: 'high-performance'
+    });
+  } catch (e) { mainGL = null; }
+  if (!window.THREE || !mainGL) showFallback();
+  else {
+    try { startScene(mainGL); }
+    catch (e) { showFallback(); }
+  }
+
+  /* ========================================================================
+     CARD 1: live mini 3D station (own small renderer inside the thumb)
+     1 unit = 100 mm. Real size 260 W x 350 H x 178 D mm.
+     ======================================================================== */
+  (function station3d() {
+    var el = document.getElementById('station3d');
+    var hint = document.getElementById('station3d-hint');
+    if (!el) return;
+
+    function stationFallback() {
+      if (el.querySelector('img')) return;
+      var img = document.createElement('img');
+      img.className = 'contain';
+      img.src = 'img/station.png';
+      img.alt = '';
+      el.appendChild(img);
+      el.classList.remove('thumb-3d');
+      el.removeAttribute('tabindex');
+      el.setAttribute('aria-label', 'The Charged YYJ station, 260 by 178 by 350 millimetres.');
+      if (hint) hint.textContent = '260 x 178 x 350 mm\n3D view unavailable';
+    }
+
+    var started = false;
+    function init() {
+      if (started) return;
+      started = true;
+      var T = window.THREE;
+      if (!T) { stationFallback(); return; }
+      var cv = document.createElement('canvas');
+      cv.setAttribute('aria-hidden', 'true');
+      var ctx = null;
+      try {
+        ctx = cv.getContext('webgl2', { antialias: true, alpha: true, premultipliedAlpha: true }) ||
+          cv.getContext('webgl', { antialias: true, alpha: true, premultipliedAlpha: true });
+      } catch (e) { ctx = null; }
+      if (!ctx) { stationFallback(); return; }
+      var r;
+      try { r = new T.WebGLRenderer({ canvas: cv, context: ctx, antialias: true, alpha: true }); }
+      catch (e) { stationFallback(); return; }
+      r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      r.setClearColor(0x000000, 0);
+      el.appendChild(cv);
+
+      var scene = new T.Scene();
+      var cam = new T.PerspectiveCamera(30, 2, 0.1, 100);
+      scene.add(new T.HemisphereLight(0xffffff, 0x1a1a1a, 0.85));
+      var key = new T.DirectionalLight(0xffffff, 0.9); key.position.set(4, 6, 8); scene.add(key);
+      var rim = new T.DirectionalLight(0xf5c518, 0.45); rim.position.set(-6, 3, -5); scene.add(rim);
+
+      var MONO = '"SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+      function canvasTex(w, h, draw) {
+        var c = document.createElement('canvas'); c.width = w; c.height = h;
+        draw(c.getContext('2d'), w, h);
+        var t = new T.CanvasTexture(c);
+        t.minFilter = T.LinearFilter; t.generateMipmaps = false;
+        t.anisotropy = r.capabilities.getMaxAnisotropy();
+        return t;
+      }
+
+      // Screen picture (mock-up): brand, headline, QR-like block, price.
+      var screenTex = canvasTex(800, 500, function (g2, w, h) {
+        g2.fillStyle = '#0c0c0c'; g2.fillRect(0, 0, w, h);
+        g2.textBaseline = 'alphabetic';
+        g2.font = '700 34px ' + MONO;
+        g2.fillStyle = '#ffffff'; g2.fillText('CHARGED', 44, 74);
+        var cw = g2.measureText('CHARGED ').width;
+        g2.fillStyle = '#f5c518'; g2.fillText('YYJ', 44 + cw, 74);
+        g2.fillStyle = '#ffffff'; g2.font = '700 64px ' + MONO; g2.fillText('Phone', 44, 200);
+        g2.fillText('dying?', 44, 270);
+        g2.fillStyle = '#8a8a8a'; g2.font = '400 26px ' + MONO; g2.fillText('Scan to rent', 44, 326);
+        g2.fillStyle = '#f5c518'; g2.font = '700 110px ' + MONO; g2.fillText('$9', 44, 450);
+        // QR-like square (illustration only, not a real code)
+        var qs = 300, qx = w - qs - 56, qy = (h - qs) / 2, n = 25, m = qs / n;
+        g2.fillStyle = '#ffffff'; g2.fillRect(qx - 16, qy - 16, qs + 32, qs + 32);
+        g2.fillStyle = '#0c0c0c';
+        var seed = 11;
+        function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+        for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
+          var finderZone = (x < 8 && y < 8) || (x > n - 9 && y < 8) || (x < 8 && y > n - 9);
+          if (!finderZone && rnd() > 0.52) g2.fillRect(qx + x * m, qy + y * m, Math.ceil(m), Math.ceil(m));
+        }
+        function finder(cx, cy) {
+          g2.fillStyle = '#0c0c0c'; g2.fillRect(qx + cx * m, qy + cy * m, 7 * m, 7 * m);
+          g2.fillStyle = '#ffffff'; g2.fillRect(qx + (cx + 1) * m, qy + (cy + 1) * m, 5 * m, 5 * m);
+          g2.fillStyle = '#0c0c0c'; g2.fillRect(qx + (cx + 2) * m, qy + (cy + 2) * m, 3 * m, 3 * m);
+        }
+        finder(0, 0); finder(n - 7, 0); finder(0, n - 7);
+      });
+
+      // Rounded box from an extruded rounded rectangle with a bevel.
+      function roundedBox(w, h, d, r0) {
+        var b = Math.min(r0, d / 2 - 0.001, w / 2 - 0.001, h / 2 - 0.001);
+        var iw = w - 2 * b, ih = h - 2 * b, rc = Math.min(b, iw / 2, ih / 2) * 0.6;
+        var x0 = -iw / 2, y0 = -ih / 2, shape = new T.Shape();
+        shape.moveTo(x0 + rc, y0);
+        shape.lineTo(x0 + iw - rc, y0);
+        shape.quadraticCurveTo(x0 + iw, y0, x0 + iw, y0 + rc);
+        shape.lineTo(x0 + iw, y0 + ih - rc);
+        shape.quadraticCurveTo(x0 + iw, y0 + ih, x0 + iw - rc, y0 + ih);
+        shape.lineTo(x0 + rc, y0 + ih);
+        shape.quadraticCurveTo(x0, y0 + ih, x0, y0 + ih - rc);
+        shape.lineTo(x0, y0 + rc);
+        shape.quadraticCurveTo(x0, y0, x0 + rc, y0);
+        var depth = Math.max(0.0001, d - 2 * b);
+        var geo = new T.ExtrudeGeometry(shape, {
+          depth: depth, bevelEnabled: true, bevelThickness: b, bevelSize: b,
+          bevelSegments: 3, curveSegments: 4
+        });
+        geo.translate(0, 0, -depth / 2);
+        return geo;
+      }
+
+      var model = new T.Group();
+      scene.add(model);
+
+      var bodyMat = new T.MeshStandardMaterial({ color: 0x1b1b1b, roughness: 0.5, metalness: 0.25 });
+      var darkMat = new T.MeshStandardMaterial({ color: 0x0b0b0b, roughness: 0.35, metalness: 0.2 });
+      var bankMat = new T.MeshStandardMaterial({ color: 0x232323, roughness: 0.4, metalness: 0.2 });
+      var W = 2.6, H = 3.5, D = 1.78, FRONT = D / 2;
+
+      // Lower body: full footprint, y from -1.75 to 0.15
+      var LOW_H = 1.9, LOW_TOP = -H / 2 + LOW_H;
+      var lower = new T.Mesh(roundedBox(W, LOW_H, D, 0.08), bodyMat);
+      lower.position.set(0, -H / 2 + LOW_H / 2, 0);
+      model.add(lower);
+
+      // Yellow light line where the screen head meets the body
+      var band = new T.Mesh(new T.BoxGeometry(W - 0.06, 0.025, D - 0.06), new T.MeshBasicMaterial({ color: 0xf5c518 }));
+      band.position.set(0, LOW_TOP + 0.005, 0);
+      model.add(band);
+
+      // Screen head, tilted back 12 degrees, pivoting on the front edge
+      var HEAD_H = 1.65, HEAD_D = 1.2;
+      var pivot = new T.Group();
+      pivot.position.set(0, LOW_TOP + 0.02, FRONT);
+      pivot.rotation.x = -T.MathUtils.degToRad(12);
+      model.add(pivot);
+      var head = new T.Mesh(roundedBox(W, HEAD_H, HEAD_D, 0.08), bodyMat);
+      head.position.set(0, HEAD_H / 2, -HEAD_D / 2);
+      pivot.add(head);
+      // 10.1-inch screen: 222 x 139 mm visible area
+      var bezel = new T.Mesh(new T.PlaneGeometry(2.34, 1.5), darkMat);
+      bezel.position.set(0, HEAD_H / 2, 0.003);
+      pivot.add(bezel);
+      var screen = new T.Mesh(new T.PlaneGeometry(2.22, 1.39), new T.MeshBasicMaterial({ map: screenTex }));
+      screen.position.set(0, HEAD_H / 2, 0.006);
+      pivot.add(screen);
+
+      // Slot panel + 8 slots (2 columns x 4 rows), each with a power bank face and LED
+      var panel = new T.Mesh(new T.PlaneGeometry(2.3, 1.36), darkMat);
+      panel.position.set(0, -1.0, FRONT + 0.003);
+      model.add(panel);
+      var ledMat = new T.MeshBasicMaterial({ color: 0x2bd46a });
+      var cols = [-0.6, 0.6], rows = [-0.52, -0.82, -1.12, -1.42];
+      var slotGeo = roundedBox(1.0, 0.22, 0.06, 0.03);
+      var ledGeo = new T.RingGeometry(0.025, 0.04, 20);
+      for (var ri = 0; ri < rows.length; ri++) for (var ci = 0; ci < cols.length; ci++) {
+        var bank = new T.Mesh(slotGeo, bankMat);
+        bank.position.set(cols[ci], rows[ri], FRONT + 0.03);
+        model.add(bank);
+        var led = new T.Mesh(ledGeo, ledMat);
+        led.position.set(cols[ci], rows[ri], FRONT + 0.062);
+        model.add(led);
+      }
+
+      // Framing: whole station visible at any thumb shape
+      function fit() {
+        var w = el.clientWidth, h = el.clientHeight;
+        if (!w || !h) return false;
+        r.setSize(w, h, false);
+        cam.aspect = w / h;
+        var t = Math.tan(T.MathUtils.degToRad(cam.fov / 2));
+        var dist = Math.max((H * 1.2) / 2 / t, (3.4 * 1.15) / 2 / (t * cam.aspect));
+        cam.position.set(0, dist * 0.14, dist);
+        cam.lookAt(0, 0, 0);
+        cam.updateProjectionMatrix();
+        return true;
+      }
+
+      // Turning: drag, arrow keys, gentle idle spin
+      var yaw = -0.6, pitch = 0.08, spin = 0, dragging = false, lastX = 0, lastY = 0, lastTouch = -1e9;
+      function draw() { model.rotation.set(pitch, yaw, 0); r.render(scene, cam); }
+      el.addEventListener('pointerdown', function (e) {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        dragging = true; spin = 0; lastX = e.clientX; lastY = e.clientY;
+        el.classList.add('dragging');
+        try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        lastTouch = now(); start();
+      });
+      el.addEventListener('pointermove', function (e) {
+        if (!dragging) return;
+        var ddx = e.clientX - lastX, ddy = e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        yaw += ddx * 0.012; spin = ddx * 0.012;
+        pitch = clamp(pitch + ddy * 0.006, -0.35, 0.6);
+        lastTouch = now(); start();
+      });
+      function end() { if (!dragging) return; dragging = false; el.classList.remove('dragging'); lastTouch = now(); }
+      el.addEventListener('pointerup', end);
+      el.addEventListener('pointercancel', end);
+      el.addEventListener('lostpointercapture', end);
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowLeft') yaw -= 0.25;
+        else if (e.key === 'ArrowRight') yaw += 0.25;
+        else if (e.key === 'ArrowUp') pitch = clamp(pitch - 0.12, -0.35, 0.6);
+        else if (e.key === 'ArrowDown') pitch = clamp(pitch + 0.12, -0.35, 0.6);
+        else return;
+        e.preventDefault(); spin = 0; lastTouch = now(); draw(); start();
+      });
+
+      var running = false, visible = false, raf = 0;
+      function frame() {
+        if (!running) return;
+        if (!dragging) {
+          yaw += spin; spin *= 0.92;
+          if (Math.abs(spin) < 0.0004) spin = 0;
+          if (!reduced && now() - lastTouch > 3000) yaw += 0.005;
+        }
+        draw();
+        if (reduced && !dragging && spin === 0) { running = false; return; }
+        raf = requestAnimationFrame(frame);
+      }
+      function start() {
+        if (running || !visible || document.hidden) return;
+        running = true; raf = requestAnimationFrame(frame);
+      }
+      function stop() { running = false; cancelAnimationFrame(raf); }
+
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function (entries) {
+          visible = entries[entries.length - 1].isIntersecting;
+          if (visible) { fit(); start(); } else stop();
+        }).observe(el);
+      } else { visible = true; }
+      document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); else start(); });
+      if ('ResizeObserver' in window) new ResizeObserver(function () { if (fit()) draw(); }).observe(el);
+      else window.addEventListener('resize', function () { if (fit()) draw(); });
+      reducedListeners.push(function () { start(); });
+      cv.addEventListener('webglcontextlost', function (e) { e.preventDefault(); stop(); cv.remove(); stationFallback(); });
+
+      if (fit()) draw();
+      start();
+    }
+
+    // Build it the first time the card is actually on screen (the list is hidden on phones).
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        if (entries.some(function (en) { return en.isIntersecting; })) { io.disconnect(); init(); }
+      });
+      io.observe(el);
+    } else init();
+  })();
+})();
+</script>
+
 </body>
 </html>
