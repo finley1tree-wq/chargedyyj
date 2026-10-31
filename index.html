@@ -27,35 +27,35 @@
   --text: #dddddd;
   --muted: #8a8a8a;
   --chip: #1c1c1c;
-  --chip-text: #cfcfcf;
-  --chip-active: #e6e6e6;
-  --chip-active-text: #000000;
   --line: #2a2a2a;
+  --line-strong: #3a3a3a;
   --white: #ffffff;
   --thumb: #0a0a0a;
-  --counter-bg: #0a0a0a;
   --dialog-bg: #0b0b0b;
   --dialog-text: #e2e2e2;
   --backdrop: rgba(0, 0, 0, 0.72);
+  --stage-shade: rgba(0, 0, 0, 0.9);
   --mono: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+  --gutter-l: max(24px, var(--sal));
+  --gutter-r: max(24px, var(--sar));
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
 html, body {
-  height: 100%;
   margin: 0;
-  overflow: hidden;
   background: var(--bg);
   color: var(--text);
 }
-
+html { scroll-behavior: smooth; }
 body {
+  min-height: 100%;
+  overflow-x: hidden;
   font-family: var(--mono);
   font-size: 13px;
   line-height: 1.35;
@@ -69,7 +69,8 @@ body {
 :focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; }
 
 /* ==========================================================================
-   Layer 0: WebGL particle canvas (and the static fallback).
+   Layer 0: WebGL particle canvas (and the static fallback). Decorative only:
+   it never takes the pointer, so the page scrolls normally on touch.
    ========================================================================== */
 #bg {
   position: fixed;
@@ -78,53 +79,42 @@ body {
   height: 100%;
   display: block;
   z-index: 0;
-  touch-action: none;
-}
-
-.fallback {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-.fallback img {
-  display: block;
-  max-width: min(300px, 60vw);
-  max-height: 60vh;
-  object-fit: contain;
-  border-radius: 2px;
-}
-.no-webgl #bg { display: none; }
-.no-webgl .fallback { display: flex; }
-
-/* ==========================================================================
-   Layer 1: thin UI.
-   Note: .ui is position:absolute with no z-index on purpose. A fixed or
-   z-indexed layer would create an isolated stacking context, and the
-   plus-lighter text would then blend with nothing. Without one, the text
-   blends with the canvas underneath and glows over the particles.
-   ========================================================================== */
-.ui {
-  position: absolute;
-  inset: 0;
   pointer-events: none;
 }
+.no-webgl #bg { display: none; }
 
-.ui a, .ui button, .tags, .list, .about { pointer-events: auto; }
-
+/* ==========================================================================
+   Layer 1: UI. No z-index / isolation on purpose: the .glow text blends with
+   the canvas underneath and glows over the particles.
+   ========================================================================== */
 .glow {
   mix-blend-mode: screen;        /* fallback where plus-lighter is unknown */
   mix-blend-mode: plus-lighter;
 }
 
+/* ---------- Stage: picker | big view | details ---------- */
+.stage {
+  position: relative;
+  height: 100vh;
+  height: 100svh;
+  min-height: 620px;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 340px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "brand  brand  brand"
+    "picker view   details"
+    "cue    cue    cue";
+  column-gap: 40px;
+  row-gap: 22px;
+  padding-block: 24px 14px;
+  padding-left: var(--gutter-l);
+  padding-right: var(--gutter-r);
+}
+
 /* Brand, top left */
 .brand {
-  position: absolute;
-  top: calc(24px + var(--sat));
-  left: calc(24px + var(--sal));
+  grid-area: brand;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -146,79 +136,47 @@ body {
   white-space: pre-line;
 }
 
-/* Price counter, top right */
-.counter {
-  position: absolute;
-  top: calc(24px + var(--sat));
-  right: calc(24px + var(--sar));
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--counter-bg);
-  color: var(--white);
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* Picker: the things you can look at (left column). The five share the column's
+   height, so all of them stay visible on short laptop screens. */
+.picker {
+  grid-area: picker;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(5, minmax(0, 1fr));
 }
 
-/* Spec chips */
-.tags {
-  position: absolute;
-  top: calc(120px + var(--sat));
-  left: calc(24px + var(--sal));
-  width: 320px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.chip {
+.pick {
   appearance: none;
   -webkit-appearance: none;
-  border: 0;
+  display: block;
+  width: 100%;
   margin: 0;
-  border-radius: 2px;
-  background: var(--chip);
-  color: var(--chip-text);
-  padding: 5px 9px;
-  font: inherit;
-  font-size: 11px;
-  line-height: 1.35;
-  letter-spacing: inherit;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background-color .3s, color .3s, opacity .3s;
-}
-.chip:hover { opacity: .7; }
-.chip[aria-pressed="true"] { background: var(--chip-active); color: var(--chip-active-text); }
-.chip[aria-pressed="true"]:hover { opacity: 1; }
-
-/* Media cards, left column (scrolls, scrollbar hidden) */
-.list {
-  position: absolute;
-  top: calc(250px + var(--sat));
-  left: calc(24px + var(--sal));
-  bottom: 0;
-  width: 320px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  padding-bottom: calc(24px + var(--sab));
-}
-.list::-webkit-scrollbar { display: none; }
-
-.card {
-  padding: 18px 0;
+  padding: 14px 0;
+  border: 0;
   border-top: 1px solid var(--line);
-  transition: opacity .3s;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
-.card.dim { opacity: .25; }
+.pick[aria-selected="true"] { border-top-color: var(--accent); }
+.pick .thumb { transition: opacity .3s; }
+.pick[aria-selected="false"] .thumb { opacity: .55; }
+.pick[aria-selected="false"]:hover .thumb { opacity: .85; }
+.pick:focus-visible { outline-offset: -1px; }
 
 .thumb {
   position: relative;
-  height: 160px;
+  display: block;
+  flex: 1 1 auto;
+  min-height: 40px;
+  max-height: 120px;
   border-radius: 2px;
   background: var(--thumb);
   overflow: hidden;
@@ -227,61 +185,146 @@ body {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 8px;
 }
-.thumb img.contain { object-fit: contain; padding: 10px; }
-
-.thumb-3d { cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
-.thumb-3d.dragging { cursor: grabbing; }
-.thumb-3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.thumb .tag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  background: var(--accent);
+  color: #000;
+  font-size: 10px;
+  line-height: 1.3;
+}
 
 .meta {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  margin-top: 10px;
+  margin-top: 9px;
   font-size: 12px;
 }
 .meta span { white-space: pre-line; }
 .meta span:first-child { color: var(--white); }
 .meta span:last-child { color: var(--muted); text-align: right; }
+.pick[aria-selected="true"] .meta span:first-child { color: var(--accent); }
 
-/* Text column, right */
-.about {
+/* The big view: whatever is picked fills it */
+.view {
+  grid-area: view;
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  /* Dark pool behind the object so it reads clearly over the particles. */
+  background: radial-gradient(closest-side, var(--stage-shade) 62%, rgba(0, 0, 0, 0) 100%);
+}
+.panel {
   position: absolute;
-  right: calc(90px + var(--sar));
-  top: 50%;
-  transform: translateY(-50%);
-  width: 380px;
-  max-height: calc(100% - 140px - var(--sat) - var(--sab));
+  inset: 0 0 34px;
+}
+.panel img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.panel img.paper { border-radius: 2px; }
+.panel.zoomable img { cursor: zoom-in; }
+
+.panel-3d { cursor: grab; touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; }
+.panel-3d.dragging { cursor: grabbing; }
+.panel-3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.panel-3d.no-3d { cursor: default; }
+
+.viewbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 34px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.viewbar .what { color: var(--white); }
+.viewbar a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: opacity .3s;
+}
+.viewbar a:hover { opacity: .7; }
+
+/* Details: talks about whatever is picked (right column, scrolls on its own) */
+.details {
+  grid-area: details;
+  min-height: 0;
   overflow-y: auto;
   scrollbar-width: none;
-  overscroll-behavior: contain;
+  align-self: center;
+  max-height: 100%;
 }
-.about::-webkit-scrollbar { display: none; }
-.about .block + .block { margin-top: 2.2em; }
-.about h2 {
+.details::-webkit-scrollbar { display: none; }
+
+h2 {
   margin: 0 0 1em;
   font-size: 13px;
   font-weight: 400;
   color: var(--accent);
 }
-.about p { margin: 0 0 1em; text-align: justify; }
-.about p.line { margin: 0 0 .35em; text-align: left; }
-.about ol, .about ul { list-style: inside; margin: 0 0 1em; padding: 0; }
-.about ol { list-style: decimal inside; }
-.about li { margin: 0 0 .35em; }
-.about a, .about .link {
-  display: block;
-  margin: 4px 0;
+.copy p { margin: 0 0 1em; }
+.copy ol, .copy ul { margin: 0 0 1em; padding: 0; }
+.copy ol { list-style: decimal inside; }
+.copy ul { list-style: none; }
+.copy li { margin: 0 0 .35em; }
+
+.specs { margin: 0 0 1.2em; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 7px 16px; }
+.specs dt { color: var(--muted); }
+.specs dd { margin: 0; color: var(--white); }
+.hint { color: var(--muted); }
+
+.cue {
+  grid-area: cue;
+  justify-self: center;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 11px;
+  transition: opacity .3s;
+}
+.cue:hover { opacity: .7; }
+
+/* ---------- Below the stage: the business ---------- */
+.info {
+  position: relative;
+  border-top: 1px solid var(--line);
+  padding-block: 80px 48px;
+  padding-left: var(--gutter-l);
+  padding-right: var(--gutter-r);
+}
+.info-grid {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 56px 48px;
+}
+.block { min-width: 0; max-width: 46ch; }
+.block a, .block .link {
   color: inherit;
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: opacity .3s;
 }
-.about a.inline { display: inline; margin: 0; }
-.about a:hover, .about .link:hover { opacity: .7; }
-.about .link {
+.block a:hover, .block .link:hover { opacity: .7; }
+.block .link {
+  display: block;
+  margin: 6px 0;
   appearance: none;
   -webkit-appearance: none;
   background: none;
@@ -293,37 +336,69 @@ body {
   text-align: left;
   cursor: pointer;
 }
+.block p.line { margin: 0 0 .45em; }
 .nocase { text-transform: none; }
+
+.foot {
+  max-width: 1180px;
+  margin: 64px auto 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.foot a { color: inherit; }
 
 /* ==========================================================================
    Responsive
    ========================================================================== */
 @media (max-width: 1100px) {
-  .about { right: calc(24px + var(--sar)); width: 320px; }
+  .stage { grid-template-columns: 190px minmax(0, 1fr) 250px; column-gap: 26px; }
+  .meta span:last-child { display: none; }
+  .info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-@media (max-width: 760px) {
-  .list, .tags { display: none; }
-  .about {
-    left: calc(24px + var(--sal));
-    right: calc(24px + var(--sar));
-    bottom: calc(24px + var(--sab));
-    top: auto;
-    width: auto;
-    transform: none;
-    max-height: 60vh;
-    max-height: min(60svh, calc(100svh - 120px - var(--sat) - var(--sab)));
+/* Phones and portrait tablets: big view first, picker strip under it, then the details. */
+@media (max-width: 900px) {
+  .stage {
+    height: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-block: 18px 8px;
   }
-  .about p { text-align: left; }
-  /* The column scrolls inside itself on short phones: fade the bottom edge so
-     it reads as "more below", and pad the end so the last line clears the fade. */
-  .about {
-    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
-    padding-bottom: 40px;
+  .brand { order: 0; }
+  .view { order: 1; height: 58vh; height: 58svh; min-height: 300px; flex: none; }
+  .picker { order: 2; }
+  .details { order: 3; }
+  .picker {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-left: calc(-1 * var(--gutter-l));
+    margin-right: calc(-1 * var(--gutter-r));
+    padding-left: var(--gutter-l);
+    padding-right: var(--gutter-r);
+    scroll-snap-type: x proximity;
+    scroll-padding-left: var(--gutter-l);
+    scroll-padding-right: var(--gutter-r);
+    overscroll-behavior-x: contain;
   }
-  .fallback { align-items: flex-start; padding-top: calc(96px + var(--sat)); }
-  .fallback img { max-height: 30vh; }
+  .pick { flex: 0 0 136px; padding: 10px 0 2px; scroll-snap-align: start; }
+  .thumb { flex: none; height: 76px; max-height: none; }
+  .meta { font-size: 11px; gap: 8px; }
+  .meta span:last-child { display: none; }
+  .details { align-self: stretch; max-height: none; overflow: visible; }
+  .cue { display: none; }
+  .info { padding-top: 48px; }
+  .info-grid { grid-template-columns: minmax(0, 1fr); gap: 40px; }
 }
 
 /* ==========================================================================
@@ -396,7 +471,8 @@ dialog.legal::backdrop { background: var(--backdrop); }
 .dlg-body section + section { margin-top: 26px; padding-top: 6px; border-top: 1px solid var(--line); }
 
 @media (prefers-reduced-motion: reduce) {
-  * { transition-duration: 0s !important; scroll-behavior: auto !important; }
+  html { scroll-behavior: auto; }
+  * { transition-duration: 0s !important; }
 }
 </style>
 </head>
@@ -404,92 +480,182 @@ dialog.legal::backdrop { background: var(--backdrop); }
 
 <!-- Layer 0: particle cloud (decorative) -->
 <canvas id="bg" aria-hidden="true"></canvas>
-<div class="fallback" aria-hidden="true"><img src="img/station-hero.webp" alt="" loading="lazy"></div>
 
 <!-- Layer 1: UI -->
 <main class="ui">
-  <header class="brand glow">
-    <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">
-      <circle cx="20" cy="20" r="18.5" fill="none" stroke="#ffffff" stroke-width="1.6"/>
-      <path transform="translate(20 20) scale(0.78) translate(-12 -12)" d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" fill="#ffffff"/>
-    </svg>
-    <div>
-      <h1 class="name">CHARGED <span>YYJ</span></h1>
-      <p class="sub">Phone charging
+  <section class="stage" id="top" aria-label="The Charged YYJ station and power bank">
+    <header class="brand glow">
+      <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+        <circle cx="20" cy="20" r="18.5" fill="none" stroke="#ffffff" stroke-width="1.6"/>
+        <path transform="translate(20 20) scale(0.78) translate(-12 -12)" d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" fill="#ffffff"/>
+      </svg>
+      <div>
+        <h1 class="name">CHARGED <span>YYJ</span></h1>
+        <p class="sub">Phone charging
 Victoria BC</p>
-    </div>
-  </header>
+      </div>
+    </header>
 
-  <div class="counter" role="img" aria-label="Rental price: $9">$9</div>
-
-  <div class="tags glow" role="group" aria-label="Station specs">
-    <button class="chip" type="button" aria-pressed="true" data-key="all">All</button>
-    <button class="chip" type="button" aria-pressed="false" data-key="slots">8 slots</button>
-    <button class="chip" type="button" aria-pressed="false" data-key="screen">10.1in screen</button>
-    <button class="chip" type="button" aria-pressed="false" data-key="qr">QR pay</button>
-    <button class="chip" type="button" aria-pressed="false" data-key="mah">5,000 mAh</button>
-    <button class="chip" type="button" aria-pressed="false" data-key="usbc">USB-C</button>
-    <button class="chip" type="button" aria-pressed="false" data-key="lightning">Lightning</button>
-    <button class="chip" type="button" aria-pressed="false" data-key="micro">Micro-USB</button>
-    <button class="chip" type="button" aria-pressed="false" data-key="volt">120 V</button>
-    <button class="chip" type="button" aria-pressed="false" data-key="return">24 h return</button>
-  </div>
-
-  <section class="list" aria-label="The station and the power bank">
-    <article class="card" data-keys="slots screen qr">
-      <div class="thumb thumb-3d" id="station3d" tabindex="0" role="img" aria-label="3D model of the Charged YYJ station, 260 by 178 by 350 millimetres. Drag, or use the arrow keys, to turn it."></div>
-      <div class="meta"><span>Station
-3D</span><span id="station3d-hint">260 x 178 x 350 mm
-drag to turn</span></div>
-    </article>
-    <article class="card" data-keys="slots screen qr volt">
-      <div class="thumb"><img class="contain" src="img/station-hero.webp" alt="The Charged YYJ station: a screen on top and 8 power bank slots below" loading="lazy"></div>
-      <div class="meta"><span>Station
+    <nav class="picker" role="tablist" aria-label="Choose what to look at" aria-orientation="vertical">
+      <button class="pick" type="button" role="tab" id="tab-station-3d" data-item="station-3d" aria-controls="view" aria-selected="true">
+        <span class="thumb"><img id="thumb-station-3d" src="img/station-hero.webp" alt="" loading="lazy"><span class="tag">3D</span></span>
+        <span class="meta"><span>Station
+3D</span><span>260 x 178 x 350 mm
+drag to turn</span></span>
+      </button>
+      <button class="pick" type="button" role="tab" id="tab-station-photo" data-item="station-photo" aria-controls="view" aria-selected="false" tabindex="-1">
+        <span class="thumb"><img src="img/station-hero.webp" alt="" loading="lazy"></span>
+        <span class="meta"><span>Station
 photo</span><span>8 slots
-10.1-inch screen</span></div>
-    </article>
-    <article class="card" data-keys="mah usbc lightning micro return">
-      <div class="thumb"><img class="contain" src="img/power-bank-hero.webp" alt="A Charged YYJ power bank, front and back, with built-in Lightning, USB-C and Micro-USB cables" loading="lazy"></div>
-      <div class="meta"><span>Power bank
-5,000 mAh</span><span>Lightning, USB-C, Micro-USB
-140 g</span></div>
-    </article>
-    <article class="card" data-keys="volt slots">
-      <div class="thumb"><img class="contain" src="img/drawing-1.png" alt="Scale drawing of the station on a bar top: 260 by 178 mm footprint, 350 mm tall, one 120 V outlet" loading="lazy"></div>
-      <div class="meta"><span>Fits on the bar
+10.1-inch screen</span></span>
+      </button>
+      <button class="pick" type="button" role="tab" id="tab-power-bank-3d" data-item="power-bank-3d" aria-controls="view" aria-selected="false" tabindex="-1">
+        <span class="thumb"><img id="thumb-power-bank-3d" src="img/power-bank-hero.webp" alt="" loading="lazy"><span class="tag">3D</span></span>
+        <span class="meta"><span>Power bank
+3D</span><span>132 x 70 x 15 mm
+drag to turn</span></span>
+      </button>
+      <button class="pick" type="button" role="tab" id="tab-power-bank-photo" data-item="power-bank-photo" aria-controls="view" aria-selected="false" tabindex="-1">
+        <span class="thumb"><img src="img/power-bank-hero.webp" alt="" loading="lazy"></span>
+        <span class="meta"><span>Power bank
+photo</span><span>Front and back
+5,000 mAh</span></span>
+      </button>
+      <button class="pick" type="button" role="tab" id="tab-fits-on-the-bar" data-item="fits-on-the-bar" aria-controls="view" aria-selected="false" tabindex="-1">
+        <span class="thumb"><img src="img/drawing-thumb.webp" alt="" loading="lazy"></span>
+        <span class="meta"><span>Fits on the bar
 scale drawing</span><span>One 120 V outlet
-no wiring</span></div>
-    </article>
+no wiring</span></span>
+      </button>
+    </nav>
+
+    <div class="view" id="view" role="tabpanel" aria-labelledby="tab-station-3d">
+      <div class="panel panel-3d" data-panel="station-3d" id="station3d" tabindex="0" role="img"
+        aria-label="3D model of the Charged YYJ station, 260 by 178 by 350 millimetres. Drag, or use the arrow keys, to turn it."></div>
+      <div class="panel zoomable" data-panel="station-photo" hidden>
+        <img src="img/station-hero.webp" alt="The Charged YYJ station: a tilted 10.1-inch screen showing the QR code on top, and 8 power bank slots below" loading="lazy">
+      </div>
+      <div class="panel panel-3d" data-panel="power-bank-3d" id="bank3d" tabindex="0" role="img" hidden
+        aria-label="3D model of the Charged YYJ power bank, 132 by 70 by 15 millimetres, with built-in Lightning, USB-C and Micro-USB cables on the back. Drag, or use the arrow keys, to turn it."></div>
+      <div class="panel zoomable" data-panel="power-bank-photo" hidden>
+        <img src="img/power-bank-hero.webp" alt="A Charged YYJ power bank, front and back, with built-in Lightning, USB-C and Micro-USB cables" loading="lazy">
+      </div>
+      <div class="panel zoomable" data-panel="fits-on-the-bar" hidden>
+        <img class="paper" src="img/drawing-full.webp" alt="Scale drawing of the station on a bar top: 260 by 178 mm footprint, 350 mm tall, one 120 V outlet, about 150 mm kept clear in front" loading="lazy">
+      </div>
+      <div class="viewbar">
+        <span class="what" id="view-what">Station · 3D</span>
+        <span id="view-act">Drag to turn</span>
+      </div>
+    </div>
+
+    <aside class="details glow">
+      <article class="copy" id="detail-station-3d" data-detail="station-3d">
+        <h2>[the station]</h2>
+        <p>This is what sits on the bar. The screen shows the QR code, and 8 charged power banks wait in the slots below.</p>
+        <dl class="specs">
+          <dt>Size</dt><dd>260 x 178 x 350 mm</dd>
+          <dt>Weight</dt><dd>2.6 kg</dd>
+          <dt>Slots</dt><dd>8 power banks</dd>
+          <dt>Screen</dt><dd>10.1-inch, shows the QR code</dd>
+          <dt>Power</dt><dd>One regular 120 V outlet</dd>
+          <dt>Pay</dt><dd>Scan the QR, pay $9 on your phone</dd>
+        </dl>
+        <p class="hint">Drag to turn it, or use the arrow keys.</p>
+      </article>
+      <article class="copy" id="detail-station-photo" data-detail="station-photo" hidden>
+        <h2>[station photo]</h2>
+        <p>The station with our screen on it. When you pay, a power bank slides out the front. You can return it to a free slot at any Charged YYJ station.</p>
+        <dl class="specs">
+          <dt>Screen</dt><dd>QR code to rent</dd>
+          <dt>Slots</dt><dd>8, in two columns of four</dd>
+          <dt>Front</dt><dd>Keep about 150 mm (6 in) clear</dd>
+          <dt>Staff</dt><dd>Nothing to do: no payments, no chargers to hand out</dd>
+        </dl>
+        <p class="hint">Click the photo to open it full size.</p>
+      </article>
+      <article class="copy" id="detail-power-bank-3d" data-detail="power-bank-3d" hidden>
+        <h2>[the power bank]</h2>
+        <p>This is what you take with you. It charges your phone through its own built-in cables, so you don't need to carry one.</p>
+        <dl class="specs">
+          <dt>Capacity</dt><dd>5,000 mAh</dd>
+          <dt>Cables</dt><dd>Lightning, USB-C and Micro-USB, built in</dd>
+          <dt>Size</dt><dd>132 x 70 x 15 mm</dd>
+          <dt>Weight</dt><dd>140 g</dd>
+          <dt>Output</dt><dd>5 V 2 A</dd>
+          <dt>Return</dt><dd>Any Charged YYJ station, within 24 hours</dd>
+        </dl>
+        <p class="hint">Turn it over to see the cables.</p>
+      </article>
+      <article class="copy" id="detail-power-bank-photo" data-detail="power-bank-photo" hidden>
+        <h2>[power bank photo]</h2>
+        <p>Front and back. The green lights show how much charge is left. Tuck the cables back in before you return it.</p>
+        <dl class="specs">
+          <dt>Capacity</dt><dd>5,000 mAh</dd>
+          <dt>Cables</dt><dd>Lightning, USB-C, Micro-USB</dd>
+          <dt>Weight</dt><dd>140 g</dd>
+        </dl>
+        <p class="hint">Click the photo to open it full size.</p>
+      </article>
+      <article class="copy" id="detail-fits-on-the-bar" data-detail="fits-on-the-bar" hidden>
+        <h2>[fits on the bar]</h2>
+        <p>The footprint is smaller than a sheet of paper. It plugs into one regular outlet, with no wiring.</p>
+        <dl class="specs">
+          <dt>Footprint</dt><dd>260 x 178 mm (10¼ x 7 in)</dd>
+          <dt>Height</dt><dd>350 mm (13¾ in)</dd>
+          <dt>Power</dt><dd>One standard 120 V outlet, 60 W rated</dd>
+          <dt>In front</dt><dd>About 150 mm (6 in) clear</dd>
+        </dl>
+        <p class="hint">Click the drawing to open it full size.</p>
+      </article>
+    </aside>
+
+    <a class="cue" href="#about">Scroll for more about Charged YYJ ↓</a>
   </section>
 
-  <section class="about glow" aria-label="About Charged YYJ">
-    <div class="block">
-      <h2>[what it is]</h2>
-      <p>Phone charging stations in bars and venues across Victoria, BC. Scan the QR code on the station, pay $9 on your phone, and take a charged power bank.</p>
+  <section class="info" id="about" aria-label="About Charged YYJ">
+    <div class="info-grid">
+      <div class="block copy">
+        <h2>[what it is]</h2>
+        <p>Phone charging stations in bars and venues across Victoria, BC. Scan the QR code on the station, pay $9 on your phone, and take a charged power bank.</p>
+      </div>
+      <div class="block copy">
+        <h2>[how it works]</h2>
+        <ol>
+          <li>Scan the QR code on the screen</li>
+          <li>Pay $9 on your phone, PST included</li>
+          <li>Take a charged power bank</li>
+          <li>Return it to any Charged YYJ station within 24 hours</li>
+        </ol>
+      </div>
+      <div class="block copy">
+        <h2>[for bars]</h2>
+        <p>The station is free for your bar. You get 15% of every $9 rental, paid monthly. Staff never touch payments or chargers. It needs one regular outlet.</p>
+      </div>
+      <div class="block copy">
+        <h2>[about us]</h2>
+        <p>Charged YYJ is a small local business in Victoria, BC, started in 2026 by Finley Taverna. We set up every station ourselves and keep it stocked with charged power banks.</p>
+      </div>
+      <div class="block copy">
+        <h2>[what we aim to do]</h2>
+        <p>Nobody should have to leave a good night out because their phone died. We want a charged power bank within reach in bars across Victoria, for $9, with nothing extra for bar staff to do.</p>
+      </div>
+      <div class="block copy">
+        <h2>[connect]</h2>
+        <p class="line">Email: <a class="nocase" href="mailto:finleytaverna@gmail.com">finleytaverna@gmail.com</a></p>
+        <p class="line">Phone: <a href="tel:+12508836094">250-883-6094</a></p>
+        <button class="link" type="button" data-open="terms" aria-haspopup="dialog">Rental terms</button>
+        <button class="link" type="button" data-open="privacy" aria-haspopup="dialog">Privacy</button>
+      </div>
     </div>
-    <div class="block">
-      <h2>[how it works]</h2>
-      <ol>
-        <li>Scan the QR code on the screen</li>
-        <li>Pay $9 on your phone, PST included</li>
-        <li>Take a charged power bank</li>
-        <li>Return it to any Charged YYJ station within 24 hours</li>
-      </ol>
-    </div>
-    <div class="block">
-      <h2>[for bars]</h2>
-      <p>The station is free for your bar. You get 15% of every $9 rental, paid monthly. Staff never touch payments or chargers. It needs one regular outlet.</p>
-    </div>
-    <div class="block">
-      <h2>[connect]</h2>
-      <p class="line">Email: <a class="inline nocase" href="mailto:finleytaverna@gmail.com">finleytaverna@gmail.com</a></p>
-      <p class="line">Phone: <a class="inline" href="tel:+12508836094">250-883-6094</a></p>
-      <button class="link" type="button" data-open="terms" aria-haspopup="dialog">Rental terms</button>
-      <button class="link" type="button" data-open="privacy" aria-haspopup="dialog">Privacy</button>
-    </div>
+    <footer class="foot">
+      <span>Charged YYJ · Victoria, BC</span>
+      <a href="#top">Back to top ↑</a>
+    </footer>
   </section>
 </main>
 
+<!-- Rental terms + privacy (required by the payment provider). -->
 <!-- Rental terms + privacy (required by the payment provider). Text copied verbatim from the site preview. -->
 <dialog class="legal" id="legal" aria-labelledby="legal-title">
   <div class="dlg-head">
@@ -545,30 +711,97 @@ no wiring</span></div>
   function now() { return performance.now(); }
 
   /* ========================================================================
-     Spec chips: highlight the cards that show that spec
+     Picker: choose what fills the big view (tabs), and what the details say
      ======================================================================== */
-  (function chips() {
-    var buttons = Array.prototype.slice.call(document.querySelectorAll('.chip'));
-    var cards = Array.prototype.slice.call(document.querySelectorAll('.list .card'));
-    var list = document.querySelector('.list');
-    buttons.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var key = btn.getAttribute('data-key');
-        buttons.forEach(function (b) { b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
-        var first = null;
-        cards.forEach(function (card) {
-          var keys = (card.getAttribute('data-keys') || '').split(/\s+/);
-          var match = key === 'all' || keys.indexOf(key) !== -1;
-          card.classList.toggle('dim', !match);
-          if (match && !first) first = card;
-        });
-        if (list && first && list.clientHeight) {
-          var top = key === 'all' ? 0 : first.offsetTop;
-          try { list.scrollTo({ top: top, behavior: reduced ? 'auto' : 'smooth' }); }
-          catch (e) { list.scrollTop = top; }
+  var ITEMS = {
+    'station-3d': { what: 'Station · 3D', act: 'Drag to turn' },
+    'station-photo': { what: 'Station · photo', full: 'img/station-hero.webp' },
+    'power-bank-3d': { what: 'Power bank · 3D', act: 'Drag to turn' },
+    'power-bank-photo': { what: 'Power bank · photo', full: 'img/power-bank-hero.webp' },
+    'fits-on-the-bar': { what: 'Fits on the bar · scale drawing', full: 'img/drawing-full.webp' }
+  };
+  var picker = (function () {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('.pick'));
+    var view = document.getElementById('view');
+    var whatEl = document.getElementById('view-what');
+    var actEl = document.getElementById('view-act');
+    var detailsEl = document.querySelector('.details');
+    var listeners = [];
+    var api = { current: null, onChange: function (fn) { listeners.push(fn); } };
+    if (!tabs.length || !view) return api;
+
+    function each(sel, fn) { Array.prototype.forEach.call(document.querySelectorAll(sel), fn); }
+
+    function select(id, opts) {
+      opts = opts || {};
+      if (!ITEMS[id]) return;
+      api.current = id;
+      tabs.forEach(function (t) {
+        var on = t.getAttribute('data-item') === id;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
+        if (on) {
+          if (opts.focus) t.focus();
+          if (opts.reveal && t.scrollIntoView) {
+            try { t.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduced ? 'auto' : 'smooth' }); }
+            catch (e) { /* old browsers */ }
+          }
         }
       });
+      each('[data-panel]', function (p) { p.hidden = p.getAttribute('data-panel') !== id; });
+      each('[data-detail]', function (d) { d.hidden = d.getAttribute('data-detail') !== id; });
+      if (detailsEl) detailsEl.scrollTop = 0;
+      view.setAttribute('aria-labelledby', 'tab-' + id);
+      view.setAttribute('aria-describedby', 'detail-' + id);
+
+      var item = ITEMS[id];
+      whatEl.textContent = item.what;
+      actEl.textContent = '';
+      if (item.full) {
+        var a = document.createElement('a');
+        a.href = item.full; a.target = '_blank'; a.rel = 'noopener';
+        a.textContent = 'Open full size ↗';
+        actEl.appendChild(a);
+      } else {
+        actEl.textContent = item.act || '';
+      }
+      if (opts.user && window.history && history.replaceState) {
+        try { history.replaceState(null, '', '#' + id); } catch (e) { /* file:// etc. */ }
+      }
+      listeners.forEach(function (fn) { fn(id); });
+    }
+    api.select = select;
+
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { select(t.getAttribute('data-item'), { user: true, reveal: true }); });
+      t.addEventListener('keydown', function (e) {
+        var k = e.key, n = tabs.length, j = -1;
+        if (k === 'ArrowDown' || k === 'ArrowRight') j = (i + 1) % n;
+        else if (k === 'ArrowUp' || k === 'ArrowLeft') j = (i - 1 + n) % n;
+        else if (k === 'Home') j = 0;
+        else if (k === 'End') j = n - 1;
+        if (j < 0) return;
+        e.preventDefault();
+        select(tabs[j].getAttribute('data-item'), { user: true, focus: true, reveal: true });
+      });
     });
+
+    // Clicking a photo or the drawing opens it full size in a new tab.
+    each('.panel.zoomable img', function (img) {
+      img.addEventListener('click', function () {
+        var item = ITEMS[api.current];
+        if (item && item.full) window.open(item.full, '_blank', 'noopener');
+      });
+    });
+
+    function fromHash() {
+      var h = (location.hash || '').replace('#', '');
+      if (ITEMS[h]) { select(h, { reveal: true }); return true; }
+      return false;
+    }
+    window.addEventListener('hashchange', fromHash);
+    if (!fromHash()) select('station-3d');
+    return api;
   })();
 
   /* ========================================================================
@@ -629,7 +862,9 @@ no wiring</span></div>
   var canvas = document.getElementById('bg');
   var stopMain = function () {};
 
+  var mainDead = false;
   function showFallback() {
+    mainDead = true;
     try { stopMain(); } catch (e) { /* ignore */ }
     root.classList.add('no-webgl');
   }
@@ -1258,9 +1493,32 @@ no wiring</span></div>
     var baseCam = camera.clone();
     var ORIGIN = new T.Vector3(0, 0, 0);
 
-    // ---------- layout: put the bolt in the free space between the columns ----------
+    // ---------- layout: the bolt sits behind the big view, and scrolls with it ----------
     var BOLT_H = 0.7, BOLT_W = 0.63;
     var tmpV = new T.Vector3(), tmpDir = new T.Vector3();
+    var viewEl = document.getElementById('view');
+    function place() {
+      var w = window.innerWidth, h = Math.max(1, window.innerHeight);
+      var r = viewEl ? viewEl.getBoundingClientRect() : null;
+      var nx = 0, ny = 0, wantW = 0.6, maxHFrac = 0.6;
+      if (r && r.width && r.height) {
+        nx = ((r.left + r.width / 2) / w) * 2 - 1;
+        ny = 1 - ((r.top + r.height / 2) / h) * 2;
+        wantW = Math.min(1.1, (r.width * 1.05) / w);
+        maxHFrac = Math.min(0.95, (r.height * 0.92) / h);
+      }
+      // Ray from the base camera through (nx, ny), hit the plane z = -1.
+      tmpV.set(nx, ny, 0.5).unproject(baseCam);
+      tmpDir.copy(tmpV).sub(baseCam.position).normalize();
+      var t = (-1 - baseCam.position.z) / tmpDir.z;
+      group.position.copy(baseCam.position).addScaledVector(tmpDir, t);
+
+      var viewH = 2 * t * Math.tan(T.MathUtils.degToRad(camera.fov / 2));
+      var viewW = viewH * (w / h);
+      var s = Math.min(5, (maxHFrac * viewH) / BOLT_H, (wantW * viewW) / BOLT_W);
+      group.scale.set(s, s, s * 1.2);
+      group.rotation.set(T.MathUtils.degToRad(-6), T.MathUtils.degToRad(24), T.MathUtils.degToRad(3));
+    }
     function layout() {
       var w = window.innerWidth, h = Math.max(1, window.innerHeight);
       var aspect = w / h;
@@ -1272,47 +1530,7 @@ no wiring</span></div>
 
       baseCam.aspect = aspect; baseCam.updateProjectionMatrix();
       baseCam.position.copy(BASE); baseCam.lookAt(ORIGIN); baseCam.updateMatrixWorld();
-
-      // Measure the UI so the bolt sits in the space it leaves free.
-      var aboutEl = document.querySelector('.about');
-      var listEl = document.querySelector('.list');
-      var brandEl = document.querySelector('.brand');
-      var aboutR = aboutEl ? aboutEl.getBoundingClientRect() : null;
-      var listR = listEl ? listEl.getBoundingClientRect() : null;
-      var brandR = brandEl ? brandEl.getBoundingClientRect() : null;
-      var nx, ny, wantW, maxHFrac;
-      if (w <= 760) {
-        // Phone: text column sits at the bottom; use the band between brand and text.
-        var topPx = (brandR ? brandR.bottom : 70) + 12;
-        var botPx = aboutR && aboutR.height ? aboutR.top - 8 : h * 0.5;
-        botPx = Math.max(botPx, topPx + h * 0.24);       // if the text is tall, overlap it a little
-        nx = 0;
-        ny = 1 - ((topPx + botPx) / 2) / h * 2;
-        maxHFrac = Math.min(0.6, ((botPx - topPx) / h) * 0.92);
-        wantW = 0.8;
-      } else {
-        // Desktop: between the card list and the text column.
-        var leftPx = listR && listR.width ? listR.right + 24 : 24;
-        var rightPx = aboutR && aboutR.width ? aboutR.left - 24 : w - 24;
-        var free = Math.max(160, rightPx - leftPx);
-        nx = ((leftPx + rightPx) / 2) / w * 2 - 1;
-        ny = 0.02;
-        // Keep the bolt (and its outer scatter) inside the free band so it never
-        // runs under the card list or the text column.
-        wantW = Math.min(1, (free * 0.82) / w);
-        maxHFrac = 0.6;
-      }
-      // Ray from the base camera through (nx, ny), hit the plane z = -1.
-      tmpV.set(nx, ny, 0.5).unproject(baseCam);
-      tmpDir.copy(tmpV).sub(baseCam.position).normalize();
-      var t = (-1 - baseCam.position.z) / tmpDir.z;
-      group.position.copy(baseCam.position).addScaledVector(tmpDir, t);
-
-      var viewH = 2 * t * Math.tan(T.MathUtils.degToRad(camera.fov / 2));
-      var viewW = viewH * aspect;
-      var s = Math.min(5, (maxHFrac * viewH) / BOLT_H, (wantW * viewW) / BOLT_W);
-      group.scale.set(s, s, s * 1.2);
-      group.rotation.set(T.MathUtils.degToRad(-6), T.MathUtils.degToRad(24), T.MathUtils.degToRad(3));
+      place();
     }
     layout();
 
@@ -1406,8 +1624,10 @@ no wiring</span></div>
       }
     }
 
+    // Run only while the stage is on screen and the tab is visible.
+    var stageOn = true;
     function start() {
-      if (running || document.hidden) return;
+      if (mainDead || running || document.hidden || !stageOn) return;
       running = true; lastT = 0;
       rafId = requestAnimationFrame(frame);
     }
@@ -1415,12 +1635,25 @@ no wiring</span></div>
     stopMain = stop;
 
     document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); else start(); });
+    var stageEl = document.querySelector('.stage');
+    if (stageEl && 'IntersectionObserver' in window) {
+      new IntersectionObserver(function (entries) {
+        stageOn = entries[entries.length - 1].isIntersecting;
+        if (stageOn) { place(); start(); } else stop();
+      }).observe(stageEl);
+    }
     var resizeQueued = false;
     window.addEventListener('resize', function () {
       if (resizeQueued) return;
       resizeQueued = true;
       requestAnimationFrame(function () { resizeQueued = false; layout(); });
     });
+    var scrollQueued = false;
+    window.addEventListener('scroll', function () {
+      if (scrollQueued || !stageOn) return;
+      scrollQueued = true;
+      requestAnimationFrame(function () { scrollQueued = false; place(); });
+    }, { passive: true });
     canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); showFallback(); }, false);
 
     start();
@@ -1440,421 +1673,619 @@ no wiring</span></div>
   }
 
   /* ========================================================================
-     CARD 1: live mini 3D station (own small renderer inside the thumb)
-     1 unit = 100 mm. Real size 260 W x 350 H x 178 D mm.
+     3D VIEWERS: the station and the power bank, each with its own small
+     renderer inside its panel. 1 unit = 100 mm.
      ======================================================================== */
-  (function station3d() {
-    var el = document.getElementById('station3d');
-    var hint = document.getElementById('station3d-hint');
-    if (!el) return;
+  var SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif';
+  var MONO = '"SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+
+  // ---------- geometry helpers ----------
+  // ExtrudeGeometry is non-indexed, so its normals are flat per triangle and every bevel step
+  // shows as a band. Average the normals of faces that share a corner, but only across
+  // gentle angles (under 40 degrees), so real edges stay crisp.
+  function smoothNormals(geo) {
+    var pos = geo.attributes.position, n = pos.count, i, j;
+    var faceN = new Float32Array(n * 3), out = new Float32Array(n * 3), groups = {};
+    for (i = 0; i < n; i += 3) {
+      var ax = pos.getX(i), ay = pos.getY(i), az = pos.getZ(i);
+      var ux = pos.getX(i + 1) - ax, uy = pos.getY(i + 1) - ay, uz = pos.getZ(i + 1) - az;
+      var vx = pos.getX(i + 2) - ax, vy = pos.getY(i + 2) - ay, vz = pos.getZ(i + 2) - az;
+      var cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
+      var len = Math.hypot(cx, cy, cz) || 1;
+      for (j = 0; j < 3; j++) { faceN[(i + j) * 3] = cx / len; faceN[(i + j) * 3 + 1] = cy / len; faceN[(i + j) * 3 + 2] = cz / len; }
+    }
+    function key(k) { return Math.round(pos.getX(k) * 1e4) + '_' + Math.round(pos.getY(k) * 1e4) + '_' + Math.round(pos.getZ(k) * 1e4); }
+    for (i = 0; i < n; i++) { var kk = key(i); (groups[kk] || (groups[kk] = [])).push(i); }
+    var COS = Math.cos(40 * Math.PI / 180);
+    for (i = 0; i < n; i++) {
+      var g = groups[key(i)], sx = 0, sy = 0, sz = 0;
+      var fx = faceN[i * 3], fy = faceN[i * 3 + 1], fz = faceN[i * 3 + 2];
+      for (j = 0; j < g.length; j++) {
+        var o = g[j] * 3, gx = faceN[o], gy = faceN[o + 1], gz = faceN[o + 2];
+        if (gx * fx + gy * fy + gz * fz >= COS) { sx += gx; sy += gy; sz += gz; }
+      }
+      var l = Math.hypot(sx, sy, sz) || 1;
+      out[i * 3] = sx / l; out[i * 3 + 1] = sy / l; out[i * 3 + 2] = sz / l;
+    }
+    geo.setAttribute('normal', new window.THREE.BufferAttribute(out, 3));
+  }
+  function rrShape(T, w, h, rad) {
+    var s = new T.Shape(), x0 = -w / 2, y0 = -h / 2;
+    rad = Math.min(rad, w / 2, h / 2);
+    s.moveTo(x0 + rad, y0);
+    s.lineTo(x0 + w - rad, y0); s.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + rad);
+    s.lineTo(x0 + w, y0 + h - rad); s.quadraticCurveTo(x0 + w, y0 + h, x0 + w - rad, y0 + h);
+    s.lineTo(x0 + rad, y0 + h); s.quadraticCurveTo(x0, y0 + h, x0, y0 + h - rad);
+    s.lineTo(x0, y0 + rad); s.quadraticCurveTo(x0, y0, x0 + rad, y0);
+    return s;
+  }
+  // Box whose FRONT outline (x/y) is a rounded rectangle, every edge softened by b. Centered.
+  function roundedBox(T, w, h, d, b, corner) {
+    b = Math.min(b, d / 2 - 0.001, w / 2 - 0.001, h / 2 - 0.001);
+    var depth = Math.max(0.0001, d - 2 * b);
+    var geo = new T.ExtrudeGeometry(rrShape(T, w - 2 * b, h - 2 * b, corner === undefined ? b * 0.6 : corner), {
+      depth: depth, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 6, curveSegments: 10
+    });
+    geo.translate(0, 0, -depth / 2);
+    smoothNormals(geo);
+    return geo;
+  }
+  // Box whose FOOTPRINT (x/z) is a rounded rectangle (soft vertical corners), from y = 0 to y = h.
+  function footprintBox(T, w, h, d, b, rad) {
+    var depth = Math.max(0.0001, h - 2 * b);
+    var geo = new T.ExtrudeGeometry(rrShape(T, w - 2 * b, d - 2 * b, rad), {
+      depth: depth, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 6, curveSegments: 12
+    });
+    geo.rotateX(-Math.PI / 2);   // extrusion now runs up the y axis
+    geo.translate(0, b, 0);
+    smoothNormals(geo);
+    return geo;
+  }
+  // Polygon (z, y) side profile, shrunk by b, corners rounded, extruded across the full width w with bevel b.
+  function profileSolid(T, pts, w, b, rad) {
+    var n = pts.length, inset = [], i;
+    var area = 0;
+    for (i = 0; i < n; i++) { var p = pts[i], q = pts[(i + 1) % n]; area += p[0] * q[1] - q[0] * p[1]; }
+    var sgn = area > 0 ? 1 : -1;
+    function offLine(a, c) {
+      var dx = c[0] - a[0], dy = c[1] - a[1], L = Math.hypot(dx, dy);
+      var nx = -dy / L * sgn, ny = dx / L * sgn; // inward normal
+      return [a[0] + nx * b, a[1] + ny * b, dx, dy];
+    }
+    for (i = 0; i < n; i++) {
+      var l1 = offLine(pts[(i + n - 1) % n], pts[i]), l2 = offLine(pts[i], pts[(i + 1) % n]);
+      var den = l1[2] * l2[3] - l1[3] * l2[2];
+      var t = ((l2[0] - l1[0]) * l2[3] - (l2[1] - l1[1]) * l2[2]) / den;
+      inset.push([l1[0] + l1[2] * t, l1[1] + l1[3] * t]);
+    }
+    var s = new T.Shape();
+    for (i = 0; i < n; i++) {
+      var pv = inset[(i + n - 1) % n], cu = inset[i], nx2 = inset[(i + 1) % n];
+      var a1 = Math.hypot(pv[0] - cu[0], pv[1] - cu[1]), a2 = Math.hypot(nx2[0] - cu[0], nx2[1] - cu[1]);
+      var rr = Math.min(rad, a1 / 2, a2 / 2);
+      var sx = cu[0] + (pv[0] - cu[0]) / a1 * rr, sy = cu[1] + (pv[1] - cu[1]) / a1 * rr;
+      var ex = cu[0] + (nx2[0] - cu[0]) / a2 * rr, ey = cu[1] + (nx2[1] - cu[1]) / a2 * rr;
+      if (i === 0) s.moveTo(sx, sy); else s.lineTo(sx, sy);
+      s.quadraticCurveTo(cu[0], cu[1], ex, ey);
+    }
+    s.closePath();
+    var depth = w - 2 * b;
+    var geo = new T.ExtrudeGeometry(s, {
+      depth: depth, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 6, curveSegments: 10
+    });
+    geo.rotateY(-Math.PI / 2); // shape (z, y) -> world; extrusion runs along -x
+    geo.translate(depth / 2, 0, 0);
+    smoothNormals(geo);
+    return geo;
+  }
+  // Flat rounded decal (x/y) whose texture covers the whole rectangle.
+  function decalGeo(T, w, h, rad) {
+    var geo = new T.ShapeGeometry(rrShape(T, w, h, rad), 8);
+    var pos = geo.attributes.position, uv = geo.attributes.uv;
+    for (var i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / w + 0.5, pos.getY(i) / h + 0.5);
+    uv.needsUpdate = true;
+    return geo;
+  }
+  function rrect(g2, x, y, w, h, rad) {
+    g2.beginPath();
+    g2.moveTo(x + rad, y); g2.arcTo(x + w, y, x + w, y + h, rad); g2.arcTo(x + w, y + h, x, y + h, rad);
+    g2.arcTo(x, y + h, x, y, rad); g2.arcTo(x, y, x + w, y, rad); g2.closePath();
+  }
+  function canvasTex(T, c, aniso) {
+    var t = new T.CanvasTexture(c);
+    t.encoding = T.sRGBEncoding;
+    t.anisotropy = aniso;
+    t.minFilter = T.LinearMipmapLinearFilter;
+    t.generateMipmaps = true;
+    return t;
+  }
+  function radialTex(T, stops) {
+    var c = document.createElement('canvas'); c.width = c.height = 128;
+    var g2 = c.getContext('2d'), gr = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
+    stops.forEach(function (s) { gr.addColorStop(s[0], s[1]); });
+    g2.fillStyle = gr; g2.fillRect(0, 0, 128, 128);
+    var t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; return t;
+  }
+  function flatMat(T, tex, opacity) {
+    return new T.MeshBasicMaterial({ map: tex, transparent: true, opacity: opacity, depthWrite: false, toneMapped: false });
+  }
+  // Studio environment for reflections: a dark room with soft boxes, prefiltered once (PMREM).
+  function studioEnv(T, r) {
+    var env = new T.Scene();
+    var boxGeo = new T.BoxGeometry(1, 1, 1);
+    var room = new T.Mesh(boxGeo, new T.MeshBasicMaterial({ color: new T.Color(0.006, 0.006, 0.007), side: T.BackSide }));
+    room.scale.set(14, 8, 14);
+    room.position.y = 2;
+    env.add(room);
+    function light(v, rgb, sx, sy, sz, px, py, pz) {
+      var c = new T.Color(rgb[0] * v, rgb[1] * v, rgb[2] * v);
+      var m = new T.Mesh(boxGeo, new T.MeshBasicMaterial({ color: c }));
+      m.scale.set(sx, sy, sz); m.position.set(px, py, pz); env.add(m);
+    }
+    light(1.1, [1, 1, 1], 4, 0.1, 3, 0, 5.8, 1);          // overhead soft box
+    light(4.5, [1, 1, 1], 0.1, 4.5, 0.9, 6.8, 1.6, 2.5);  // key strip, front right
+    light(1.6, [1, 1, 1], 0.1, 4.0, 0.7, -6.8, 1.4, 1.5); // fill strip, left
+    light(2.2, [0.85, 0.85, 1], 2.0, 3.5, 0.1, -2.5, 1.8, -6.8); // cool rim panel, back left
+    light(0.3, [1, 1, 1], 6, 0.4, 0.1, 0, 0.4, 6.8);     // low front bounce (catches the bevels)
+    var pmrem = new T.PMREMGenerator(r);
+    var tex = pmrem.fromScene(env, 0.035).texture;
+    pmrem.dispose();
+    boxGeo.dispose();
+    env.traverse(function (o) { if (o.material) o.material.dispose(); });
+    return tex;
+  }
+
+  // Real QR code for https://chargedyyj.ca (version 2-M, 25 x 25), precomputed;
+  // each hex value is one row, most significant bit = left module. Verified to decode.
+  var QR = ['1fc297f', '104bb41', '175425d', '175c95d', '175595d', '1051f41', '1fd557f', '18200', '17c8d7c',
+    '42b122', '19fda3b', '122741', 'df1ed7', '198012a', '12fb37b', '139a7f1', '11663f4', '11b18', '1fc0d57',
+    '105991b', '175d7f7', '17541df', '175b08d', '1046779', '1fda03f'];
+
+  /* ---------- The station (matches the station photo) ----------
+     Real size 260 W x 178 D x 350 H mm. Lower module with 8 slots (2 x 4),
+     plain upper panel (no card reader: you pay by QR on your phone), a thin
+     light line, then the screen head: a 10.1-inch screen leaning back over a
+     small lip, with a low block behind it. The factory renders are stretched
+     about 1.25x tall (the power bank render shows 132 x 70 mm as about 2.3:1),
+     so the layout follows the photo and the heights follow the spec sheet. */
+  function buildStation(T, kit) {
+    var W = 2.6, H = 3.5, D = 1.78, FRONT = D / 2;
+    var BODY_H = 2.21, SEAM_Y = 1.17;
+    var station = new T.Group();
+
+    // Screen picture: 1024 x 640 (16:10, like the 10.1-inch panel), drawn like the photo.
+    var sc = document.createElement('canvas'); sc.width = 1024; sc.height = 640;
+    (function drawScreen(g2, w, h) {
+      var bg = g2.createLinearGradient(0, 0, w, h);
+      bg.addColorStop(0, '#16171b'); bg.addColorStop(1, '#070708');
+      g2.fillStyle = bg; g2.fillRect(0, 0, w, h);
+      var glow = g2.createRadialGradient(w * 0.8, h * 0.9, 10, w * 0.8, h * 0.9, 520);
+      glow.addColorStop(0, 'rgba(245,197,24,0.07)'); glow.addColorStop(1, 'rgba(245,197,24,0)');
+      g2.fillStyle = glow; g2.fillRect(0, 0, w, h);
+      g2.textBaseline = 'alphabetic';
+      g2.font = '700 30px ' + SANS;
+      g2.fillStyle = '#ffffff'; g2.fillText('CHARGED', 78, 96);
+      var cw = g2.measureText('CHARGED ').width;
+      g2.fillStyle = '#f5c518'; g2.fillText('YYJ', 78 + cw, 96);
+      g2.fillRect(78, 112, 34, 5);
+      g2.fillStyle = '#ffffff'; g2.font = '700 92px ' + SANS;
+      g2.fillText('Phone', 88, 268); g2.fillText('dying?', 88, 368);
+      g2.fillStyle = '#f5c518'; g2.font = '700 52px ' + SANS; g2.fillText('$9 · 24 h', 96, 470);
+      g2.fillStyle = '#8f8f8f'; g2.font = '400 17px ' + MONO; g2.fillText('SCAN  →  UNLOCK  →  GO', 100, 512);
+      // QR card
+      var n = QR.length, quiet = 3, box = 344, mod = box / (n + 2 * quiet);
+      var qx = w - 104 - box, qy = 110;
+      g2.fillStyle = '#ffffff'; rrect(g2, qx, qy, box, box, 30); g2.fill();
+      g2.fillStyle = '#0b0b0d';
+      for (var y = 0; y < n; y++) {
+        var row = parseInt(QR[y], 16);
+        for (var x = 0; x < n; x++) {
+          if ((row >> (n - 1 - x)) & 1) g2.fillRect(qx + (quiet + x) * mod, qy + (quiet + y) * mod, Math.ceil(mod), Math.ceil(mod));
+        }
+      }
+      g2.fillStyle = '#8f8f8f'; g2.font = '400 17px ' + MONO; g2.textAlign = 'center';
+      g2.fillText('SCAN TO RENT', qx + box / 2, qy + box + 40);
+      g2.textAlign = 'left';
+    })(sc.getContext('2d'), sc.width, sc.height);
+    var screenTex = canvasTex(T, sc, kit.aniso);
+
+    // --- Materials
+    var satin = new T.MeshPhysicalMaterial({ color: 0x060607, roughness: 0.46, metalness: 0, clearcoat: 0.25, clearcoatRoughness: 0.4, envMapIntensity: 0.45 });
+    var gloss = new T.MeshPhysicalMaterial({ color: 0x050506, roughness: 0.14, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06 });
+    var recess = new T.MeshStandardMaterial({ color: 0x020203, roughness: 0.85, metalness: 0 });
+    var bankMat = new T.MeshPhysicalMaterial({ color: 0x070708, roughness: 0.3, metalness: 0, clearcoat: 0.7, clearcoatRoughness: 0.18 });
+    var yellow = new T.MeshBasicMaterial({ color: 0xf5c518, toneMapped: false });
+    var green = new T.MeshBasicMaterial({ color: 0x3dff86, toneMapped: false });
+    var lineMat = new T.MeshBasicMaterial({ color: 0x9a90f0, toneMapped: false });
+    var lineGlow = new T.MeshBasicMaterial({ color: 0x7d6dff, transparent: true, opacity: 0.16, blending: T.AdditiveBlending, depthWrite: false, toneMapped: false });
+    var seamMat = new T.MeshBasicMaterial({ color: 0x000000 });
+    var portMat = new T.MeshBasicMaterial({ color: 0x000000 });
+    var screenMat = new T.MeshBasicMaterial({ map: screenTex, toneMapped: false });
+    // Glass glare: black + additive, so only the environment reflection shows over the screen.
+    var glare = new T.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.04, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03,
+      transparent: true, blending: T.AdditiveBlending, depthWrite: false, envMapIntensity: 0.3 });
+
+    // --- Body: one block with soft vertical corners, base at y = 0
+    station.add(new T.Mesh(footprintBox(T, W, BODY_H, D, 0.045, 0.17), satin));
+
+    // Seam between the slot module and the plain upper panel (front + both sides)
+    var seamF = new T.Mesh(new T.PlaneGeometry(W - 0.3, 0.012), seamMat);
+    seamF.position.set(0, SEAM_Y, FRONT + 0.001); station.add(seamF);
+    [-1, 1].forEach(function (sd) {
+      var s = new T.Mesh(new T.PlaneGeometry(D - 0.3, 0.012), seamMat);
+      s.rotation.y = sd * Math.PI / 2; s.position.set(sd * (W / 2 + 0.001), SEAM_Y, 0); station.add(s);
+    });
+
+    // Small port on the left side, near the base
+    var port = new T.Mesh(new T.CircleGeometry(0.028, 16), portMat);
+    port.rotation.y = -Math.PI / 2; port.position.set(-W / 2 - 0.002, 0.2, FRONT - 0.28); station.add(port);
+
+    // Slot panel + 8 slots (2 columns x 4 rows): pill recess, power bank end, green ring LED,
+    // and the yellow bolt on the power bank's top face peeking out.
+    var PANEL_Y0 = 0.08, PANEL_Y1 = 1.08;
+    var slotPanel = new T.Mesh(new T.ShapeGeometry(rrShape(T, 2.22, PANEL_Y1 - PANEL_Y0, 0.07), 4), gloss);
+    slotPanel.position.set(0, (PANEL_Y0 + PANEL_Y1) / 2, FRONT + 0.002);
+    station.add(slotPanel);
+    var holeGeo = new T.ShapeGeometry(rrShape(T, 0.92, 0.21, 0.105), 8);
+    var bankGeo = roundedBox(T, 0.82, 0.16, 0.16, 0.045, 0.075);
+    var ledGeo = new T.RingGeometry(0.018, 0.028, 24);
+    var ledDot = new T.CircleGeometry(0.009, 12);
+    var tipGeo = new T.PlaneGeometry(0.12, 0.016);
+    var cols = [-0.53, 0.53], rows = [0.205, 0.435, 0.665, 0.895];
+    for (var ri = 0; ri < rows.length; ri++) for (var ci = 0; ci < cols.length; ci++) {
+      var x = cols[ci], y = rows[ri] + 0.01;
+      var hole = new T.Mesh(holeGeo, recess); hole.position.set(x, y, FRONT + 0.004); station.add(hole);
+      var bank = new T.Mesh(bankGeo, bankMat); bank.position.set(x, y, FRONT - 0.045); station.add(bank);
+      var zf = FRONT - 0.045 + 0.08 + 0.002;
+      var led = new T.Mesh(ledGeo, green); led.position.set(x + 0.03, y, zf); station.add(led);
+      var dot = new T.Mesh(ledDot, green); dot.position.set(x + 0.03, y, zf); station.add(dot);
+      var tip = new T.Mesh(tipGeo, yellow); tip.position.set(x - 0.25, y + 0.052, zf); station.add(tip);
+    }
+
+    // Light line where the screen head meets the body (sits in the groove between the two bevels)
+    var bandGeo = new T.ExtrudeGeometry(rrShape(T, W - 0.05, D - 0.05, 0.15), { depth: 0.02, bevelEnabled: false, curveSegments: 8 });
+    bandGeo.rotateX(Math.PI / 2);
+    var band = new T.Mesh(bandGeo, lineMat);
+    band.position.y = BODY_H + 0.01;
+    station.add(band);
+    var haloGeo = new T.ExtrudeGeometry(rrShape(T, W + 0.02, D + 0.02, 0.18), { depth: 0.05, bevelEnabled: false, curveSegments: 8 });
+    haloGeo.rotateX(Math.PI / 2);
+    var halo = new T.Mesh(haloGeo, lineGlow);
+    halo.position.y = BODY_H + 0.025;
+    station.add(halo);
+
+    // Screen head, side profile (z, y): flush front at the light line, a small lip,
+    // then the screen face leaning back 36 degrees, its back, and a low block behind.
+    var TILT = T.MathUtils.degToRad(36), SL = 1.5, CHIN = 0.08, LIP = FRONT + 0.05, TH = 0.2;
+    var lip = [LIP, BODY_H + CHIN];
+    var top = [LIP - SL * Math.sin(TILT), BODY_H + CHIN + SL * Math.cos(TILT)];
+    var topBack = [top[0] - TH * Math.cos(TILT), top[1] - TH * Math.sin(TILT)];
+    var REAR_Y = BODY_H + 0.38;
+    var backAtRear = [topBack[0] + (topBack[1] - REAR_Y) * Math.tan(TILT), REAR_Y];
+    var headPts = [
+      [-FRONT, BODY_H], [FRONT, BODY_H], lip, top, topBack, backAtRear, [-FRONT, REAR_Y]
+    ];
+    station.add(new T.Mesh(profileSolid(T, headPts, W, 0.045, 0.06), satin));
+
+    // Glass + 10.1-inch screen (220 x 138 mm) on the leaning face
+    var faceC = [(lip[0] + top[0]) / 2, (lip[1] + top[1]) / 2];
+    var nZ = Math.cos(TILT), nY = Math.sin(TILT);
+    function onFace(mesh, off) {
+      mesh.rotation.x = -TILT;
+      mesh.position.set(0, faceC[1] + nY * off, faceC[0] + nZ * off);
+      station.add(mesh);
+    }
+    onFace(new T.Mesh(new T.ShapeGeometry(rrShape(T, 2.48, 1.44, 0.05), 6), gloss), 0.002);
+    onFace(new T.Mesh(new T.PlaneGeometry(2.2, 1.375), screenMat), 0.005);
+    onFace(new T.Mesh(new T.ShapeGeometry(rrShape(T, 2.48, 1.44, 0.05), 6), glare), 0.008);
+
+    station.position.y = -H / 2;
+    var obj = new T.Group();
+    obj.add(station);
+    return { object: obj, H: H, R: 0.5 * Math.hypot(W, D), shadow: [W * 1.55, D * 1.75], floor: 7.5 };
+  }
+
+  /* ---------- The power bank (matches the power bank photo) ----------
+     132 x 70 x 15 mm, 140 g. Front: yellow bolt and outline, 4 green charge lights.
+     Back: capacity, "insert cable" label, built-in Lightning, USB-C and Micro-USB cables. */
+  function buildBank(T, kit) {
+    var BW = 0.7, BH = 1.32, BT = 0.15, B = 0.035;
+    var bank = new T.Group();
+    var body = new T.MeshPhysicalMaterial({ color: 0x0c0c0e, roughness: 0.24, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 0.8 });
+    bank.add(new T.Mesh(roundedBox(T, BW, BH, BT, B, 0.075), body));
+
+    var CW = 620, CH = Math.round(CW * (BH - 2 * B - 0.02) / (BW - 2 * B - 0.02));
+    function face(draw) {
+      var c = document.createElement('canvas'); c.width = CW; c.height = CH;
+      var g2 = c.getContext('2d');
+      g2.fillStyle = '#0d0d0f'; g2.fillRect(0, 0, CW, CH);
+      draw(g2, CW, CH);
+      return canvasTex(T, c, kit.aniso);
+    }
+    var front = face(function (g2, w, h) {
+      var m = 18;
+      g2.strokeStyle = '#ffe11a'; g2.lineWidth = 9;
+      rrect(g2, m, m, w - 2 * m, h - 2 * m, 18); g2.stroke();
+      // Bolt, from the photo: top edge cut by the outline, tip low on the left.
+      var ix = m + 10, iy = m + 10, iw = w - 2 * ix, ih = h - 2 * iy;
+      var P = [[0.66, 0.0], [0.99, 0.0], [0.47, 0.25], [0.85, 0.25], [0.03, 0.63], [0.37, 0.33], [0.17, 0.33]];
+      g2.fillStyle = '#ffe11a';
+      g2.beginPath();
+      P.forEach(function (p, i) { var px = ix + p[0] * iw, py = iy + p[1] * ih; if (i) g2.lineTo(px, py); else g2.moveTo(px, py); });
+      g2.closePath(); g2.fill();
+      g2.fillStyle = '#2bdc55';
+      for (var k = 0; k < 4; k++) { g2.beginPath(); g2.arc(ix + 0.15 * iw, iy + (0.83 + k * 0.03) * ih, 8, 0, Math.PI * 2); g2.fill(); }
+    });
+    var back = face(function (g2, w, h) {
+      g2.fillStyle = '#ffffff';
+      g2.font = '400 30px ' + SANS; g2.fillText('Portable Charger', 0.15 * w, 0.075 * h);
+      g2.font = '500 54px ' + SANS; g2.fillText('5000mAh', 0.15 * w, 0.125 * h);
+      // label pill
+      g2.font = '400 25px ' + SANS;
+      var label = 'Please Insert Cable Before Returning', lw = g2.measureText(label).width + 40;
+      g2.strokeStyle = '#e8e8e8'; g2.lineWidth = 3;
+      rrect(g2, (w - lw) / 2, 0.47 * h, lw, 46, 23); g2.stroke();
+      g2.textAlign = 'center'; g2.fillText(label, w / 2, 0.47 * h + 32); g2.textAlign = 'left';
+      // cable bay
+      g2.fillStyle = '#1b1b1e';
+      g2.beginPath(); g2.ellipse(w / 2, 0.6 * h, 0.27 * w, 0.06 * h, 0, Math.PI, 0); g2.fill();
+      g2.fillRect(0.23 * w, 0.6 * h, 0.54 * w, 0.4 * h);
+      // three cables: Lightning, USB-C, Micro-USB
+      var xs = [0.36, 0.5, 0.64], headW = 0.1 * w;
+      xs.forEach(function (fx, i) {
+        var cx = fx * w;
+        g2.fillStyle = '#7d7d80'; g2.fillRect(cx - 0.03 * w, 0.7 * h, 0.06 * w, 0.3 * h);           // flat cable
+        g2.fillStyle = '#8e8e91'; rrect(g2, cx - headW / 2, 0.635 * h, headW, 0.09 * h, 6); g2.fill(); // boot
+        g2.fillStyle = i === 0 ? '#f1f1f1' : '#d9d9dc';                                                 // plug
+        var pw = i === 1 ? 0.07 * w : 0.06 * w, ph = i === 1 ? 0.045 * h : 0.03 * h;
+        rrect(g2, cx - pw / 2, 0.635 * h - ph, pw, ph + 4, i === 1 ? 10 : 4); g2.fill();
+        if (i === 0) { g2.fillStyle = '#c9a227'; for (var k = 0; k < 4; k++) g2.fillRect(cx - pw / 2 + 8 + k * 9, 0.635 * h - ph + 8, 5, 10); }
+      });
+      // power icon
+      g2.strokeStyle = '#ffe11a'; g2.lineWidth = 5;
+      var px = 0.86 * w, py = 0.83 * h;
+      g2.beginPath(); g2.arc(px, py, 15, -Math.PI / 2 + 0.6, 1.5 * Math.PI - 0.6); g2.stroke();
+      g2.beginPath(); g2.moveTo(px, py - 20); g2.lineTo(px, py - 2); g2.stroke();
+      g2.beginPath(); g2.moveTo(px + 26, py); g2.lineTo(px + 40, py); g2.stroke();
+    });
+    var dw = BW - 2 * B - 0.02, dh = BH - 2 * B - 0.02;
+    // Printed faces stay true to the photo's colours; a clear glare layer on top keeps the gloss.
+    var faceGeo = decalGeo(T, dw, dh, 0.05);
+    var glare = new T.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05,
+      transparent: true, blending: T.AdditiveBlending, depthWrite: false, envMapIntensity: 0.35 });
+    [[front, 1], [back, -1]].forEach(function (f) {
+      var side = new T.Group();
+      var print = new T.Mesh(faceGeo, new T.MeshBasicMaterial({ map: f[0], color: 0xe8e8e8, toneMapped: false }));
+      print.position.z = BT / 2 + 0.0015;
+      var shine = new T.Mesh(faceGeo, glare);
+      shine.position.z = BT / 2 + 0.003;
+      side.add(print); side.add(shine);
+      if (f[1] < 0) side.rotation.y = Math.PI;
+      bank.add(side);
+    });
+
+    var obj = new T.Group();
+    obj.add(bank);
+    return { object: obj, H: BH, R: 0.5 * Math.hypot(BW, BT), shadow: [BW * 1.7, BT * 4], floor: 2.6 };
+  }
+
+  /* ---------- One viewer: renderer, studio light, drag to turn, auto-rotate ---------- */
+  function makeViewer(opts) {
+    var el = document.getElementById(opts.panelId);
+    var thumb = opts.thumbId ? document.getElementById(opts.thumbId) : null;
+    var api = { failed: false };
+    if (!el) return api;
 
     var dead = false, rendererRef = null;
-    function stationFallback() {
-      dead = true;
+    function fallback() {
+      dead = true; api.failed = true;
       if (rendererRef) { try { rendererRef.dispose(); } catch (err) { /* ignore */ } rendererRef = null; }
       var oldCv = el.querySelector('canvas');
       if (oldCv) oldCv.remove();
       el.classList.remove('dragging');
-      if (el.querySelector('img')) return;
-      var img = document.createElement('img');
-      img.className = 'contain';
-      img.src = 'img/station-hero.webp';
-      img.alt = '';
-      el.appendChild(img);
-      el.classList.remove('thumb-3d');
+      el.classList.add('no-3d');
       el.removeAttribute('tabindex');
-      el.setAttribute('aria-label', 'The Charged YYJ station, 260 by 178 by 350 millimetres.');
-      if (hint) hint.textContent = '260 x 178 x 350 mm\n3D view unavailable';
+      if (!el.querySelector('img')) {
+        var img = document.createElement('img');
+        img.src = opts.fallbackSrc; img.alt = '';
+        el.appendChild(img);
+      }
+      el.setAttribute('aria-label', opts.fallbackLabel);
+      ITEMS[opts.item].act = '3D view unavailable';
+      var hint = document.querySelector('[data-detail="' + opts.item + '"] .hint');
+      if (hint) hint.hidden = true;
+      if (picker.current === opts.item) document.getElementById('view-act').textContent = '3D view unavailable';
     }
 
-    var started = false;
-    function init() {
-      if (started) return;
-      started = true;
-      try { build(); }
-      catch (e) { stationFallback(); }
-    }
-    function build() {
-      var T = window.THREE;
-      if (!T) { stationFallback(); return; }
-      var cv = document.createElement('canvas');
-      cv.setAttribute('aria-hidden', 'true');
-      var ctx = null;
-      try {
-        ctx = cv.getContext('webgl2', { antialias: true, alpha: true, premultipliedAlpha: true }) ||
-          cv.getContext('webgl', { antialias: true, alpha: true, premultipliedAlpha: true });
-      } catch (e) { ctx = null; }
-      if (!ctx) { stationFallback(); return; }
-      var r;
-      try { r = new T.WebGLRenderer({ canvas: cv, context: ctx, antialias: true, alpha: true }); }
-      catch (e) { stationFallback(); return; }
-      rendererRef = r;
-      r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      r.setClearColor(0x000000, 0);
-      r.outputEncoding = T.sRGBEncoding;
-      r.toneMapping = T.ACESFilmicToneMapping;
-      r.toneMappingExposure = 1.0;
-      el.appendChild(cv);
+    var T = window.THREE;
+    if (!T) { fallback(); return api; }
+    var cv = document.createElement('canvas');
+    cv.setAttribute('aria-hidden', 'true');
+    var ctx = null;
+    try {
+      ctx = cv.getContext('webgl2', { antialias: true, alpha: true, premultipliedAlpha: true }) ||
+        cv.getContext('webgl', { antialias: true, alpha: true, premultipliedAlpha: true });
+    } catch (e) { ctx = null; }
+    if (!ctx) { fallback(); return api; }
+    var r;
+    try { r = new T.WebGLRenderer({ canvas: cv, context: ctx, antialias: true, alpha: true }); }
+    catch (e) { fallback(); return api; }
+    rendererRef = r;
+    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    r.setClearColor(0x000000, 0);
+    r.outputEncoding = T.sRGBEncoding;
+    r.toneMapping = T.ACESFilmicToneMapping;
+    r.toneMappingExposure = 1.0;
+    el.appendChild(cv);
 
-      var scene = new T.Scene();
-      var cam = new T.PerspectiveCamera(26, 2, 1, 60);
-      var maxAniso = r.capabilities.getMaxAnisotropy();
-
-      // --- Studio environment for reflections: a dark room with soft boxes, prefiltered once (PMREM).
-      (function studio() {
-        var env = new T.Scene();
-        var boxGeo = new T.BoxGeometry(1, 1, 1);
-        var room = new T.Mesh(boxGeo, new T.MeshBasicMaterial({ color: new T.Color(0.006, 0.006, 0.007), side: T.BackSide }));
-        room.scale.set(14, 8, 14);
-        room.position.y = 2;
-        env.add(room);
-        function light(v, rgb, sx, sy, sz, px, py, pz) {
-          var c = new T.Color(rgb[0] * v, rgb[1] * v, rgb[2] * v);
-          var m = new T.Mesh(boxGeo, new T.MeshBasicMaterial({ color: c }));
-          m.scale.set(sx, sy, sz); m.position.set(px, py, pz); env.add(m);
-        }
-        light(1.1, [1, 1, 1], 4, 0.1, 3, 0, 5.8, 1);          // overhead soft box
-        light(4.5, [1, 1, 1], 0.1, 4.5, 0.9, 6.8, 1.6, 2.5);  // key strip, front right
-        light(1.6, [1, 1, 1], 0.1, 4.0, 0.7, -6.8, 1.4, 1.5); // fill strip, left
-        light(3.0, [1, 0.82, 0.45], 2.0, 3.5, 0.1, -2.5, 1.8, -6.8); // warm rim panel, back left
-        light(0.3, [1, 1, 1], 6, 0.4, 0.1, 0, 0.4, 6.8);     // low front bounce (catches the bevels)
-        var pmrem = new T.PMREMGenerator(r);
-        scene.environment = pmrem.fromScene(env, 0.035).texture;
-        pmrem.dispose();
-        boxGeo.dispose();
-        env.traverse(function (o) { if (o.material) o.material.dispose(); });
-      })();
-
+    var scene = new T.Scene();
+    var cam = new T.PerspectiveCamera(26, 1, 0.5, 80);
+    var built;
+    try {
+      scene.environment = studioEnv(T, r);
       scene.add(new T.HemisphereLight(0xffffff, 0x0a0a0a, 0.18));
       var key = new T.DirectionalLight(0xffffff, 1.2); key.position.set(4, 6, 7); scene.add(key);
-      var rimL = new T.DirectionalLight(0xffe2a8, 1.1); rimL.position.set(-6, 3.5, -5); scene.add(rimL);
+      var rimL = new T.DirectionalLight(0xd8d4ff, 0.9); rimL.position.set(-6, 3.5, -5); scene.add(rimL);
+      built = opts.build(T, { aniso: r.capabilities.getMaxAnisotropy() });
+    } catch (e) { fallback(); return api; }
 
-      var MONO = '"SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+    var H = built.H;
+    var rig = new T.Group();           // turned by drag / auto-rotate
+    var holder = new T.Group();        // bobs gently above the floor
+    holder.add(built.object);
+    rig.add(holder);
+    scene.add(rig);
+    var floor = new T.Mesh(new T.PlaneGeometry(built.floor, built.floor),
+      flatMat(T, radialTex(T, [[0, 'rgba(255,255,255,0.10)'], [0.45, 'rgba(255,255,255,0.035)'], [1, 'rgba(255,255,255,0)']]), 1));
+    floor.rotation.x = -Math.PI / 2; floor.position.y = -H / 2 - 0.004;
+    rig.add(floor);
+    var shadow = new T.Mesh(new T.PlaneGeometry(built.shadow[0], built.shadow[1]),
+      flatMat(T, radialTex(T, [[0, 'rgba(0,0,0,0.95)'], [0.5, 'rgba(0,0,0,0.6)'], [1, 'rgba(0,0,0,0)']]), 0.9));
+    shadow.rotation.x = -Math.PI / 2; shadow.position.y = -H / 2 - 0.002;
+    rig.add(shadow);
 
-      // Real QR code for https://chargedyyj.ca (version 2-M, 25 x 25), precomputed;
-      // each hex value is one row, most significant bit = left module. Verified to decode.
-      var QR = ['1fc297f', '104bb41', '175425d', '175c95d', '175595d', '1051f41', '1fd557f', '18200', '17c8d7c',
-        '42b122', '19fda3b', '122741', 'df1ed7', '198012a', '12fb37b', '139a7f1', '11663f4', '11b18', '1fc0d57',
-        '105991b', '175d7f7', '17541df', '175b08d', '1046779', '1fda03f'];
-
-      function rrect(g2, x, y, w, h, rad) {
-        g2.beginPath();
-        g2.moveTo(x + rad, y); g2.arcTo(x + w, y, x + w, y + h, rad); g2.arcTo(x + w, y + h, x, y + h, rad);
-        g2.arcTo(x, y + h, x, y, rad); g2.arcTo(x, y, x + w, y, rad); g2.closePath();
-      }
-
-      // Screen picture: 1024 x 640 (16:10, like the 10.1-inch panel), sRGB, mipmapped.
-      var sc = document.createElement('canvas'); sc.width = 1024; sc.height = 640;
-      (function drawScreen(g2, w, h) {
-        var bg = g2.createLinearGradient(0, 0, 0, h);
-        bg.addColorStop(0, '#15161a'); bg.addColorStop(1, '#08090b');
-        g2.fillStyle = bg; g2.fillRect(0, 0, w, h);
-        var glow = g2.createRadialGradient(w * 0.74, h * 0.5, 10, w * 0.74, h * 0.5, 420);
-        glow.addColorStop(0, 'rgba(245,197,24,0.10)'); glow.addColorStop(1, 'rgba(245,197,24,0)');
-        g2.fillStyle = glow; g2.fillRect(0, 0, w, h);
-        g2.textBaseline = 'alphabetic';
-        g2.font = '700 38px ' + MONO;
-        g2.fillStyle = '#ffffff'; g2.fillText('CHARGED', 60, 92);
-        var cw = g2.measureText('CHARGED ').width;
-        g2.fillStyle = '#f5c518'; g2.fillText('YYJ', 60 + cw, 92);
-        g2.fillStyle = 'rgba(255,255,255,0.12)'; g2.fillRect(60, 122, 470, 2);
-        g2.fillStyle = '#ffffff'; g2.font = '700 84px ' + MONO;
-        g2.fillText('Phone', 60, 250); g2.fillText('dying?', 60, 342);
-        g2.fillStyle = '#9a9a9a'; g2.font = '400 30px ' + MONO; g2.fillText('Scan to rent', 60, 404);
-        g2.fillStyle = '#f5c518'; g2.font = '700 76px ' + MONO; g2.fillText('$9 · 24 h', 60, 562);
-        // QR card
-        var n = QR.length, mod = 12, quiet = 3, box = (n + 2 * quiet) * mod;
-        var qx = w - 64 - box, qy = Math.round((h - box) / 2) - 18;
-        g2.fillStyle = '#ffffff'; rrect(g2, qx, qy, box, box, 18); g2.fill();
-        g2.fillStyle = '#0b0b0d';
-        for (var y = 0; y < n; y++) {
-          var row = parseInt(QR[y], 16);
-          for (var x = 0; x < n; x++) {
-            if ((row >> (n - 1 - x)) & 1) g2.fillRect(qx + (quiet + x) * mod, qy + (quiet + y) * mod, mod, mod);
-          }
-        }
-        g2.fillStyle = '#9a9a9a'; g2.font = '400 26px ' + MONO; g2.textAlign = 'center';
-        g2.fillText('chargedyyj.ca', qx + box / 2, qy + box + 46);
-        g2.textAlign = 'left';
-      })(sc.getContext('2d'), sc.width, sc.height);
-      var screenTex = new T.CanvasTexture(sc);
-      screenTex.encoding = T.sRGBEncoding;
-      screenTex.anisotropy = maxAniso;
-      screenTex.minFilter = T.LinearMipmapLinearFilter;
-      screenTex.generateMipmaps = true;
-
-      // Soft contact shadow + faint studio floor (radial gradients on flat planes).
-      function radialTex(stops) {
-        var c = document.createElement('canvas'); c.width = c.height = 128;
-        var g2 = c.getContext('2d'), gr = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
-        stops.forEach(function (s) { gr.addColorStop(s[0], s[1]); });
-        g2.fillStyle = gr; g2.fillRect(0, 0, 128, 128);
-        var t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; return t;
-      }
-      function flatMat(tex, opacity) {
-        return new T.MeshBasicMaterial({ map: tex, transparent: true, opacity: opacity, depthWrite: false, toneMapped: false });
-      }
-
-      // Rounded rectangle path as a THREE.Shape (centered).
-      function rrShape(w, h, rad) {
-        var s = new T.Shape(), x0 = -w / 2, y0 = -h / 2;
-        rad = Math.min(rad, w / 2, h / 2);
-        s.moveTo(x0 + rad, y0);
-        s.lineTo(x0 + w - rad, y0); s.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + rad);
-        s.lineTo(x0 + w, y0 + h - rad); s.quadraticCurveTo(x0 + w, y0 + h, x0 + w - rad, y0 + h);
-        s.lineTo(x0 + rad, y0 + h); s.quadraticCurveTo(x0, y0 + h, x0, y0 + h - rad);
-        s.lineTo(x0, y0 + rad); s.quadraticCurveTo(x0, y0, x0 + rad, y0);
-        return s;
-      }
-      // Rounded box: extruded rounded rectangle with a soft bevel on every edge.
-      function roundedBox(w, h, d, b, corner) {
-        b = Math.min(b, d / 2 - 0.001, w / 2 - 0.001, h / 2 - 0.001);
-        var depth = Math.max(0.0001, d - 2 * b);
-        var geo = new T.ExtrudeGeometry(rrShape(w - 2 * b, h - 2 * b, corner === undefined ? b * 0.6 : corner), {
-          depth: depth, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 4, curveSegments: 5
-        });
-        geo.translate(0, 0, -depth / 2);
-        return geo;
-      }
-      // Polygon (z, y) profile, shrunk by b, corners rounded, extruded across the full width w with bevel b.
-      function profileSolid(pts, w, b, rad) {
-        var n = pts.length, inset = [], i;
-        var area = 0;
-        for (i = 0; i < n; i++) { var p = pts[i], q = pts[(i + 1) % n]; area += p[0] * q[1] - q[0] * p[1]; }
-        var sgn = area > 0 ? 1 : -1;
-        function offLine(a, c) {
-          var dx = c[0] - a[0], dy = c[1] - a[1], L = Math.hypot(dx, dy);
-          var nx = -dy / L * sgn, ny = dx / L * sgn; // inward normal
-          return [a[0] + nx * b, a[1] + ny * b, dx, dy];
-        }
-        for (i = 0; i < n; i++) {
-          var l1 = offLine(pts[(i + n - 1) % n], pts[i]), l2 = offLine(pts[i], pts[(i + 1) % n]);
-          var den = l1[2] * l2[3] - l1[3] * l2[2];
-          var t = ((l2[0] - l1[0]) * l2[3] - (l2[1] - l1[1]) * l2[2]) / den;
-          inset.push([l1[0] + l1[2] * t, l1[1] + l1[3] * t]);
-        }
-        var s = new T.Shape();
-        for (i = 0; i < n; i++) {
-          var pv = inset[(i + n - 1) % n], cu = inset[i], nx2 = inset[(i + 1) % n];
-          var a1 = Math.hypot(pv[0] - cu[0], pv[1] - cu[1]), a2 = Math.hypot(nx2[0] - cu[0], nx2[1] - cu[1]);
-          var rr = Math.min(rad, a1 / 2, a2 / 2);
-          var sx = cu[0] + (pv[0] - cu[0]) / a1 * rr, sy = cu[1] + (pv[1] - cu[1]) / a1 * rr;
-          var ex = cu[0] + (nx2[0] - cu[0]) / a2 * rr, ey = cu[1] + (nx2[1] - cu[1]) / a2 * rr;
-          if (i === 0) s.moveTo(sx, sy); else s.lineTo(sx, sy);
-          s.quadraticCurveTo(cu[0], cu[1], ex, ey);
-        }
-        s.closePath();
-        var depth = w - 2 * b;
-        var geo = new T.ExtrudeGeometry(s, {
-          depth: depth, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 4, curveSegments: 5
-        });
-        geo.rotateY(-Math.PI / 2); // shape (z, y) -> world; extrusion runs along -x
-        geo.translate(depth / 2, 0, 0);
-        return geo;
-      }
-
-      // --- Materials
-      var satin = new T.MeshPhysicalMaterial({ color: 0x08090a, roughness: 0.45, metalness: 0, clearcoat: 0.3, clearcoatRoughness: 0.35, envMapIntensity: 0.6 });
-      var gloss = new T.MeshPhysicalMaterial({ color: 0x050506, roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05 });
-      var recess = new T.MeshStandardMaterial({ color: 0x020203, roughness: 0.85, metalness: 0 });
-      var bankMat = new T.MeshPhysicalMaterial({ color: 0x141416, roughness: 0.32, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.2 });
-      var yellow = new T.MeshBasicMaterial({ color: 0xf5c518, toneMapped: false });
-      var green = new T.MeshBasicMaterial({ color: 0x3dff86, toneMapped: false });
-      var seamMat = new T.MeshBasicMaterial({ color: 0x000000 });
-      var screenMat = new T.MeshBasicMaterial({ map: screenTex, toneMapped: false });
-      // Glass glare: black + additive, so only the environment reflection shows over the screen.
-      var glare = new T.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.04, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03,
-        transparent: true, blending: T.AdditiveBlending, depthWrite: false, envMapIntensity: 0.3 });
-
-      // 1 unit = 100 mm. Station built with its base at y = 0, then centered.
-      var W = 2.6, H = 3.5, D = 1.78, FRONT = D / 2;
-      var rig = new T.Group();           // turned by drag / auto-rotate
-      var station = new T.Group();       // bobs gently above the floor
-      station.position.y = -H / 2;
-      rig.add(station);
-      scene.add(rig);
-
-      var floor = new T.Mesh(new T.PlaneGeometry(7.5, 7.5),
-        flatMat(radialTex([[0, 'rgba(255,255,255,0.10)'], [0.45, 'rgba(255,255,255,0.035)'], [1, 'rgba(255,255,255,0)']]), 1));
-      floor.rotation.x = -Math.PI / 2; floor.position.y = -H / 2 - 0.004;
-      rig.add(floor);
-      var shadow = new T.Mesh(new T.PlaneGeometry(W * 1.55, D * 1.75),
-        flatMat(radialTex([[0, 'rgba(0,0,0,0.95)'], [0.5, 'rgba(0,0,0,0.6)'], [1, 'rgba(0,0,0,0)']]), 0.9));
-      shadow.rotation.x = -Math.PI / 2; shadow.position.y = -H / 2 - 0.002;
-      rig.add(shadow);
-
-      // Lower body (slots + plain panel), 200 mm tall
-      var LOW_H = 2.0;
-      var lower = new T.Mesh(roundedBox(W, LOW_H, D, 0.1, 0.06), satin);
-      lower.position.y = LOW_H / 2;
-      station.add(lower);
-
-      // Light line where the screen head meets the body
-      var bandGeo = new T.ExtrudeGeometry(rrShape(W - 0.1, D - 0.1, 0.12), { depth: 0.022, bevelEnabled: false, curveSegments: 6 });
-      bandGeo.rotateX(Math.PI / 2); // footprint outline in the x/z plane, 2.2 mm tall
-      var band = new T.Mesh(bandGeo, yellow);
-      band.position.y = LOW_H + 0.011;
-      station.add(band);
-
-      // Seam between the slot section and the panel section (front + both sides)
-      var SEAM_Y = 1.4;
-      var seamF = new T.Mesh(new T.PlaneGeometry(W - 0.2, 0.012), seamMat);
-      seamF.position.set(0, SEAM_Y, FRONT + 0.001); station.add(seamF);
-      [-1, 1].forEach(function (sd) {
-        var s = new T.Mesh(new T.PlaneGeometry(D - 0.2, 0.012), seamMat);
-        s.rotation.y = sd * Math.PI / 2; s.position.set(sd * (W / 2 + 0.001), SEAM_Y, 0); station.add(s);
-      });
-
-      // Plain black glass panel where a card reader would sit (there is none: QR + phone pay)
-      var plain = new T.Mesh(roundedBox(1.04, 0.4, 0.03, 0.012, 0.05), gloss);
-      plain.position.set(0, 1.71, FRONT + 0.003);
-      station.add(plain);
-
-      // Slot panel + 8 slots (2 columns x 4 rows): recess, power bank, yellow bolt, green LED
-      var slotPanel = new T.Mesh(new T.ShapeGeometry(rrShape(2.24, 1.2, 0.07), 4), gloss);
-      slotPanel.position.set(0, 0.74, FRONT + 0.002);
-      station.add(slotPanel);
-      var holeGeo = new T.ShapeGeometry(rrShape(0.98, 0.26, 0.13), 6);
-      var bankGeo = roundedBox(0.92, 0.205, 0.16, 0.07, 0.03);
-      var bolt = new T.Shape();
-      [[0.012, 0.05], [-0.028, -0.004], [-0.002, -0.004], [-0.014, -0.05], [0.028, 0.008], [0.002, 0.008]].forEach(function (p, i) {
-        if (i) bolt.lineTo(p[0], p[1]); else bolt.moveTo(p[0], p[1]);
-      });
-      bolt.closePath();
-      var boltGeo = new T.ShapeGeometry(bolt);
-      var ledGeo = new T.CircleGeometry(0.016, 16);
-      var ringGeo = new T.RingGeometry(0.03, 0.038, 24);
-      var ringMat = new T.MeshBasicMaterial({ color: 0x3dff86, transparent: true, opacity: 0.35, toneMapped: false });
-      var cols = [-0.53, 0.53], rows = [0.305, 0.595, 0.885, 1.175];
-      for (var ri = 0; ri < rows.length; ri++) for (var ci = 0; ci < cols.length; ci++) {
-        var x = cols[ci], y = rows[ri];
-        var hole = new T.Mesh(holeGeo, recess); hole.position.set(x, y, FRONT + 0.004); station.add(hole);
-        var bank = new T.Mesh(bankGeo, bankMat); bank.position.set(x, y, FRONT - 0.01); station.add(bank);
-        var zf = FRONT - 0.01 + 0.08 + 0.002;
-        var bm = new T.Mesh(boltGeo, yellow); bm.scale.setScalar(0.85); bm.position.set(x - 0.3, y, zf); station.add(bm);
-        var led = new T.Mesh(ledGeo, green); led.position.set(x + 0.3, y, zf); station.add(led);
-        var ring = new T.Mesh(ringGeo, ringMat); ring.position.set(x + 0.3, y, zf); station.add(ring);
-      }
-
-      // Screen head: a wedge whose front face leans back 18 degrees and overhangs the body slightly.
-      var TILT = T.MathUtils.degToRad(18), SL = 1.58, zF = FRONT + 0.04;
-      var topF = [zF - SL * Math.sin(TILT), LOW_H + SL * Math.cos(TILT)];
-      var headPts = [[-FRONT, LOW_H], [zF, LOW_H], topF, [-FRONT, LOW_H + 0.95]];
-      var head = new T.Mesh(profileSolid(headPts, W, 0.1, 0.07), satin);
-      station.add(head);
-      // Glass + 10.1-inch screen (222 x 139 mm) on the leaning face
-      var faceC = [(zF + topF[0]) / 2, (LOW_H + topF[1]) / 2 + 0.01];
-      var nZ = Math.cos(TILT), nY = Math.sin(TILT);
-      function onFace(mesh, off) {
-        mesh.rotation.x = -TILT;
-        mesh.position.set(0, faceC[1] + nY * off, faceC[0] + nZ * off);
-        station.add(mesh);
-      }
-      onFace(new T.Mesh(new T.PlaneGeometry(2.36, 1.48), gloss), 0.003);
-      onFace(new T.Mesh(new T.PlaneGeometry(2.22, 1.39), screenMat), 0.006);
-      onFace(new T.Mesh(new T.PlaneGeometry(2.36, 1.48), glare), 0.009);
-
-      // Framing: whole station (and its shadow) visible at any thumb shape
-      function fit() {
-        if (dead) return false;
-        var w = el.clientWidth, h = el.clientHeight;
-        if (!w || !h) return false;
-        r.setSize(w, h, false);
-        cam.aspect = w / h;
-        var t = Math.tan(T.MathUtils.degToRad(cam.fov / 2));
-        var dist = Math.max((H * 1.24) / 2 / t, (3.6 * 1.12) / 2 / (t * cam.aspect));
-        cam.position.set(0, dist * 0.15, dist);
-        cam.lookAt(0, -0.06, 0);
-        cam.updateProjectionMatrix();
-        return true;
-      }
-
-      // Turning: drag with inertia, arrow keys, slow auto-rotate and a gentle idle bob
-      var yaw = -0.45, pitch = 0.04, spin = 0, dragging = false, lastX = 0, lastY = 0, lastTouch = -1e9;
-      var bobT = 0, lastFrame = 0;
-      function pose() {
-        var bob = reduced ? 0 : Math.sin(bobT * 1.1) * 0.035;
-        station.position.y = -H / 2 + 0.035 + bob;
-        var lift = (bob + 0.035) / 0.07; // 0..1
-        shadow.material.opacity = 0.92 - lift * 0.22;
-        shadow.scale.setScalar(1 + lift * 0.06);
-        rig.rotation.set(pitch, yaw, 0);
-      }
-      function draw() { if (dead) return; pose(); r.render(scene, cam); }
-      el.addEventListener('pointerdown', function (e) {
-        if (e.pointerType === 'mouse' && e.button !== 0) return;
-        dragging = true; spin = 0; lastX = e.clientX; lastY = e.clientY;
-        el.classList.add('dragging');
-        try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-        lastTouch = now(); start();
-      });
-      el.addEventListener('pointermove', function (e) {
-        if (!dragging) return;
-        var ddx = e.clientX - lastX, ddy = e.clientY - lastY;
-        lastX = e.clientX; lastY = e.clientY;
-        yaw += ddx * 0.012; spin = spin * 0.5 + ddx * 0.012 * 0.5;
-        pitch = clamp(pitch + ddy * 0.006, -0.35, 0.6);
-        lastTouch = now(); start();
-      });
-      function end() { if (!dragging) return; dragging = false; el.classList.remove('dragging'); lastTouch = now(); }
-      el.addEventListener('pointerup', end);
-      el.addEventListener('pointercancel', end);
-      el.addEventListener('lostpointercapture', end);
-      el.addEventListener('keydown', function (e) {
-        if (e.key === 'ArrowLeft') yaw -= 0.25;
-        else if (e.key === 'ArrowRight') yaw += 0.25;
-        else if (e.key === 'ArrowUp') pitch = clamp(pitch - 0.12, -0.35, 0.6);
-        else if (e.key === 'ArrowDown') pitch = clamp(pitch + 0.12, -0.35, 0.6);
-        else return;
-        e.preventDefault(); spin = 0; lastTouch = now(); draw(); start();
-      });
-
-      var running = false, visible = false, raf = 0;
-      function frame() {
-        if (!running || dead) return;
-        var tn = now(), dt = Math.min(0.05, lastFrame ? (tn - lastFrame) / 1000 : 0.016);
-        lastFrame = tn;
-        var k = dt * 60;
-        if (!dragging) {
-          yaw += spin * k; spin *= Math.pow(0.93, k);
-          if (Math.abs(spin) < 0.0004) spin = 0;
-          if (!reduced && tn - lastTouch > 2500) yaw += 0.22 * dt;
-        }
-        if (!reduced) bobT += dt;
-        draw();
-        if (reduced && !dragging && spin === 0) { running = false; return; }
-        raf = requestAnimationFrame(frame);
-      }
-      function start() {
-        if (dead || running || !visible || document.hidden) return;
-        running = true; lastFrame = 0; raf = requestAnimationFrame(frame);
-      }
-      function stop() { running = false; cancelAnimationFrame(raf); }
-
-      if ('IntersectionObserver' in window) {
-        new IntersectionObserver(function (entries) {
-          visible = entries[entries.length - 1].isIntersecting;
-          if (visible) { fit(); start(); } else stop();
-        }).observe(el);
-      } else { visible = true; }
-      document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); else start(); });
-      if ('ResizeObserver' in window) new ResizeObserver(function () { if (fit()) draw(); }).observe(el);
-      else window.addEventListener('resize', function () { if (fit()) draw(); });
-      reducedListeners.push(function () { start(); });
-      cv.addEventListener('webglcontextlost', function (e) { e.preventDefault(); stop(); stationFallback(); });
-
-      if (fit()) draw();
-      start();
+    // Framing: the whole object (as it turns) and its shadow, at any panel shape.
+    var LIFT = H * 0.012;
+    function aim(w, h) {
+      cam.aspect = w / h;
+      var t = Math.tan(T.MathUtils.degToRad(cam.fov / 2));
+      var dist = Math.max((H * 1.2) / 2 / t, (built.R * 2 * 1.25) / 2 / (t * cam.aspect));
+      cam.position.set(0, dist * 0.17, dist);
+      cam.lookAt(0, -H * 0.03, 0);
+      cam.updateProjectionMatrix();
+    }
+    function fit() {
+      if (dead) return false;
+      var w = el.clientWidth, h = el.clientHeight;
+      if (!w || !h) return false;
+      r.setSize(w, h, false);
+      aim(w, h);
+      return true;
     }
 
-    // Build it the first time the card is actually on screen (the list is hidden on phones).
+    // Turning: drag with inertia, arrow keys, slow auto-rotate and a gentle idle bob
+    var yaw = opts.yaw, pitch = 0.04, spin = 0, dragging = false, lastX = 0, lastY = 0, lastTouch = -1e9, lastMove = 0;
+    var bobT = 0, lastFrame = 0;
+    function pose() {
+      var bob = reduced ? 0 : Math.sin(bobT * 1.1) * LIFT;
+      holder.position.y = LIFT + bob;
+      var lift = (bob + LIFT) / (2 * LIFT); // 0..1
+      shadow.material.opacity = 0.92 - lift * 0.22;
+      shadow.scale.setScalar(1 + lift * 0.06);
+      rig.rotation.set(pitch, yaw, 0);
+    }
+    function draw() { if (dead) return; pose(); r.render(scene, cam); }
+
+    // Picker thumbnail: one still frame of the model at its starting angle.
+    function snapshot() {
+      if (!thumb || dead) return;
+      try {
+        var tw = 300, th = 220;
+        r.setPixelRatio(1);
+        r.setSize(tw, th, false);
+        aim(tw, th);
+        pose();
+        r.render(scene, cam);
+        thumb.src = cv.toDataURL('image/png');
+        thumb.style.padding = '0';
+      } catch (e) { /* keep the photo thumbnail */ }
+      r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      if (!fit()) r.setSize(1, 1, false);
+    }
+
+    el.addEventListener('pointerdown', function (e) {
+      if (dead || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      dragging = true; spin = 0; lastX = e.clientX; lastY = e.clientY; lastMove = now();
+      el.classList.add('dragging');
+      try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      lastTouch = now(); start();
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      var ddx = e.clientX - lastX, ddy = e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY; lastMove = now();
+      yaw += ddx * 0.01; spin = spin * 0.5 + ddx * 0.01 * 0.5;
+      pitch = clamp(pitch + ddy * 0.005, -0.35, 0.6);
+      lastTouch = now(); start();
+    });
+    function end() {
+      if (!dragging) return;
+      dragging = false; el.classList.remove('dragging'); lastTouch = now();
+      if (now() - lastMove > 60) spin = 0;   // held still before letting go: no fling
+    }
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('lostpointercapture', end);
+    el.addEventListener('keydown', function (e) {
+      if (dead) return;
+      if (e.key === 'ArrowLeft') yaw -= 0.25;
+      else if (e.key === 'ArrowRight') yaw += 0.25;
+      else if (e.key === 'ArrowUp') pitch = clamp(pitch - 0.12, -0.35, 0.6);
+      else if (e.key === 'ArrowDown') pitch = clamp(pitch + 0.12, -0.35, 0.6);
+      else return;
+      e.preventDefault(); spin = 0; lastTouch = now(); draw(); start();
+    });
+
+    var running = false, onScreen = false, raf = 0;
+    function shown() { return !el.hidden && onScreen && !document.hidden; }
+    function frame() {
+      if (!running || dead) return;
+      var tn = now(), dt = Math.min(0.05, lastFrame ? (tn - lastFrame) / 1000 : 0.016);
+      lastFrame = tn;
+      var k = dt * 60;
+      if (!dragging) {
+        yaw += spin * k; spin *= Math.pow(0.93, k);
+        if (Math.abs(spin) < 0.0004) spin = 0;
+        if (!reduced && tn - lastTouch > 2500) yaw += 0.22 * dt;
+      }
+      if (!reduced) bobT += dt;
+      draw();
+      if (reduced && !dragging && spin === 0) { running = false; return; }
+      raf = requestAnimationFrame(frame);
+    }
+    function start() {
+      if (dead || running || !shown()) return;
+      running = true; lastFrame = 0; raf = requestAnimationFrame(frame);
+    }
+    function stop() { running = false; cancelAnimationFrame(raf); }
+    function refresh() {
+      if (shown()) { if (fit()) draw(); start(); } else stop();
+    }
+    api.refresh = refresh;
+
     if ('IntersectionObserver' in window) {
-      var io = new IntersectionObserver(function (entries) {
-        if (entries.some(function (en) { return en.isIntersecting; })) { io.disconnect(); init(); }
-      });
-      io.observe(el);
-    } else init();
-  })();
+      new IntersectionObserver(function (entries) {
+        onScreen = entries[entries.length - 1].isIntersecting;
+        refresh();
+      }).observe(document.getElementById('view'));
+    } else { onScreen = true; }
+    document.addEventListener('visibilitychange', refresh);
+    if ('ResizeObserver' in window) new ResizeObserver(function () { if (fit()) draw(); }).observe(el);
+    else window.addEventListener('resize', function () { if (fit()) draw(); });
+    reducedListeners.push(function () { start(); });
+    cv.addEventListener('webglcontextlost', function (e) { e.preventDefault(); stop(); fallback(); });
+    picker.onChange(refresh);
+
+    snapshot();
+    refresh();
+    return api;
+  }
+
+  var viewOpts = {
+    'station-3d': {
+      item: 'station-3d', panelId: 'station3d', thumbId: 'thumb-station-3d', build: buildStation, yaw: 0.42,
+      fallbackSrc: 'img/station-hero.webp', fallbackLabel: 'The Charged YYJ station, 260 by 178 by 350 millimetres.'
+    },
+    'power-bank-3d': {
+      item: 'power-bank-3d', panelId: 'bank3d', thumbId: 'thumb-power-bank-3d', build: buildBank, yaw: 0.5,
+      fallbackSrc: 'img/power-bank-hero.webp', fallbackLabel: 'The Charged YYJ power bank, front and back, 132 by 70 by 15 millimetres.'
+    }
+  };
+  // Build the one on screen first; the other right after, so both picker thumbnails show the 3D models.
+  var first = picker.current === 'power-bank-3d' ? 'power-bank-3d' : 'station-3d';
+  var second = first === 'station-3d' ? 'power-bank-3d' : 'station-3d';
+  makeViewer(viewOpts[first]);
+  setTimeout(function () { makeViewer(viewOpts[second]); }, 400);
 })();
 </script>
 
