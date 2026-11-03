@@ -722,6 +722,11 @@ can for scale</span></span>
     'power-bank-photo': { what: 'Power bank · photo', full: 'img/power-bank-hero.webp' },
     'spec-sheet': { what: 'Spec sheet · scale drawing', full: 'img/spec-sheet-full.webp' }
   };
+  // While someone turns a 3D model the dots tuck away; they come back 2 seconds after it stops.
+  var dotsHold = { until: 0 };
+  var startMain = null;   // set once the dots canvas is running
+  function wakeDots() { if (startMain) startMain(); }
+
   var picker = (function () {
     var tabs = Array.prototype.slice.call(document.querySelectorAll('.pick'));
     var view = document.getElementById('view');
@@ -1088,7 +1093,7 @@ can for scale</span></span>
     '  if (any(isnan(pos)) || any(isinf(pos))) pos = origin;',
     '',
     '  // Gathered: a small dense ball that sits hidden behind the 3D model.',
-    '  // Open: a wide cloud around the whole screen. uSpread follows the scroll.',
+    '  // Open: a wide cloud around the 3D model. Only 3D views show dots; turning a model tucks them away.',
     '  vec3 dir = normalize(origin + vec3(1e-4));',
     '  vec3 gathered = dir * 0.07 * sqrt(rnd.x);',
     '  vec3 open = dir * mix(0.45, 1.75, pow(rnd.x, 0.6)) * vec3(1.0, 1.0, 0.55);',
@@ -1357,7 +1362,7 @@ can for scale</span></span>
     clearFluid();
 
     // ---------- particle data ----------
-    var SIZE = isMobile ? 128 : 512;            // 16,384 or 262,144 points
+    var SIZE = isMobile ? 128 : 256;            // 16,384 or 65,536 points: light enough for phones and laptops
     var COUNT = SIZE * SIZE;
     var originData = new Float32Array(COUNT * 4);
     var randomData = new Float32Array(COUNT * 4);
@@ -1423,7 +1428,7 @@ can for scale</span></span>
       uniforms: {
         uPositions: { value: originTex }, uOffset: { value: offRT[0].texture },
         uDPR: { value: renderer.getPixelRatio() },
-        uSizeBoost: { value: isMobile ? 1.6 : 1 }, uMatcap: { value: matcap },
+        uSizeBoost: { value: isMobile ? 1.6 : 1.35 }, uMatcap: { value: matcap },
         uAccent: { value: new T.Color(0xf5c518) }, uTime: { value: 0 },
         uGain: { value: isMobile ? 0.75 : 0.6 }, uFade: { value: 1 }
       },
@@ -1454,7 +1459,7 @@ can for scale</span></span>
       var r = viewEl ? viewEl.getBoundingClientRect() : null;
       var vx = w / 2, vy = h / 2;
       if (r && r.width && r.height) { vx = r.left + r.width / 2; vy = r.top + r.height / 2; }
-      var cx = vx + (w / 2 - vx) * spread, cy = vy + (h / 2 - vy) * spread;
+      var cx = vx, cy = vy;   // the cloud stays centred on the picture
       var nx = (cx / w) * 2 - 1, ny = 1 - (cy / h) * 2;
       // Ray from the base camera through (nx, ny), hit the plane z = -1.
       tmpV.set(nx, ny, 0.5).unproject(baseCam);
@@ -1526,24 +1531,22 @@ can for scale</span></span>
       camera.updateMatrixWorld();
       group.updateMatrixWorld();
 
-      // Scrolling down opens the cloud around the screen; scrolling back up gathers it again.
-      // Dots only show with a 3D model picked (never over the photos or the spec sheet), while
-      // they first come together on load, and as the cloud opens.
-      var sh = stageEl ? stageEl.offsetHeight : h;
-      var spreadTarget = clamp((window.scrollY || window.pageYOffset || 0) / Math.max(1, sh * 0.7), 0, 1);
-      spread += (spreadTarget - spread) * Math.min(1, dt * 3);
+      // Dots only for the 3D views. Opening one from the side bar sends them out around the model;
+      // turning the model gathers them away, and they come back 2 seconds after it stops moving.
       var item = picker.current || '';
       var is3D = item === 'station-3d' || item === 'power-bank-3d';
-      var intro = 1 - clamp((elapsed - 2.0) / 1.6, 0, 1);
-      var fadeTarget = is3D ? Math.max(intro, clamp((spread - 0.03) / 0.37, 0, 1)) : 0;
-      if (fade < 0) fade = fadeTarget;
-      fade += (fadeTarget - fade) * Math.min(1, dt * 4);
+      var holding = now() < dotsHold.until;
+      var spreadTarget = is3D && !holding ? 1 : 0;
+      spread += (spreadTarget - spread) * Math.min(1, dt * (spreadTarget > spread ? 1.8 : 3));
+      var fadeTarget = is3D && !holding ? 1 : 0;
+      if (fade < 0) fade = 0;
+      fade += (fadeTarget - fade) * Math.min(1, dt * (fadeTarget > fade ? 3 : 2));
       pointsMat.uniforms.uFade.value = fade;
       place();
       group.updateMatrixWorld();
 
-      // Nothing to show and nothing moving: clear once and sleep until a scroll or a pick.
-      if (fade < 0.003 && fadeTarget === 0 && Math.abs(spreadTarget - spread) < 0.002 && elapsed > 4) {
+      // A photo or the spec sheet is showing and the dots are gone: clear once and sleep until the next pick.
+      if (!is3D && fade < 0.003 && Math.abs(spreadTarget - spread) < 0.002) {
         renderer.setRenderTarget(null);
         renderer.clear(true, true, false);
         stop();
@@ -1604,6 +1607,7 @@ can for scale</span></span>
     }
     function stop() { running = false; cancelAnimationFrame(rafId); }
     stopMain = stop;
+    startMain = start;
 
     document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); else start(); });
     var resizeQueued = false;
@@ -1612,8 +1616,12 @@ can for scale</span></span>
       resizeQueued = true;
       requestAnimationFrame(function () { resizeQueued = false; layout(); start(); });
     });
-    window.addEventListener('scroll', start, { passive: true });
-    picker.onChange(function () { start(); });
+    picker.onChange(function () {
+      var id = picker.current || '';
+      // Opening a 3D view from the side bar sends the dots out again from the model.
+      if (id === 'station-3d' || id === 'power-bank-3d') spread = Math.min(spread, 0.15);
+      start();
+    });
     canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); showFallback(); }, false);
 
     start();
@@ -2106,6 +2114,9 @@ can for scale</span></span>
   }
 
   /* ---------- One viewer: renderer, studio light, drag to turn, auto-rotate ---------- */
+  // Once someone turns a 3D model by hand, the models stop spinning on their own for the rest of the visit.
+  var userTurned3D = false;
+
   function makeViewer(opts) {
     var el = document.getElementById(opts.panelId);
     var thumb = opts.thumbId ? document.getElementById(opts.thumbId) : null;
@@ -2199,9 +2210,13 @@ can for scale</span></span>
       return true;
     }
 
-    // Turning: drag with inertia, arrow keys, slow auto-rotate and a gentle idle bob
+    // Turning: drag with inertia, arrow keys, one smooth spin when the model is opened, and a gentle idle bob
     var yaw = opts.yaw, pitch = 0.04, spin = 0, dragging = false, lastX = 0, lastY = 0, lastTouch = -1e9, lastMove = 0;
-    var bobT = 0, lastFrame = 0;
+    var bobT = 0, lastFrame = 0, introT = -1, INTRO = 2.2;
+    function beginIntro() {
+      if (userTurned3D || reduced || dead) return;
+      introT = 0; yaw = opts.yaw - Math.PI * 2;
+    }
     function pose() {
       var bob = reduced ? 0 : Math.sin(bobT * 1.1) * LIFT;
       holder.position.y = LIFT + bob;
@@ -2232,6 +2247,8 @@ can for scale</span></span>
     el.addEventListener('pointerdown', function (e) {
       if (dead || (e.pointerType === 'mouse' && e.button !== 0)) return;
       dragging = true; spin = 0; lastX = e.clientX; lastY = e.clientY; lastMove = now();
+      userTurned3D = true; introT = -1;   // a touch stops the spin for good
+      dotsHold.until = now() + 2000; wakeDots();
       el.classList.add('dragging');
       try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
       lastTouch = now(); start();
@@ -2240,6 +2257,7 @@ can for scale</span></span>
       if (!dragging) return;
       var ddx = e.clientX - lastX, ddy = e.clientY - lastY;
       lastX = e.clientX; lastY = e.clientY; lastMove = now();
+      dotsHold.until = now() + 2000;
       yaw += ddx * 0.01; spin = spin * 0.5 + ddx * 0.01 * 0.5;
       pitch = clamp(pitch + ddy * 0.005, -0.35, 0.6);
       lastTouch = now(); start();
@@ -2259,7 +2277,8 @@ can for scale</span></span>
       else if (e.key === 'ArrowUp') pitch = clamp(pitch - 0.12, -0.35, 0.6);
       else if (e.key === 'ArrowDown') pitch = clamp(pitch + 0.12, -0.35, 0.6);
       else return;
-      e.preventDefault(); spin = 0; lastTouch = now(); draw(); start();
+      e.preventDefault(); spin = 0; userTurned3D = true; introT = -1; lastTouch = now();
+      dotsHold.until = now() + 2000; wakeDots(); draw(); start();
     });
 
     var running = false, onScreen = false, raf = 0;
@@ -2272,7 +2291,13 @@ can for scale</span></span>
       if (!dragging) {
         yaw += spin * k; spin *= Math.pow(0.93, k);
         if (Math.abs(spin) < 0.0004) spin = 0;
-        if (!reduced && tn - lastTouch > 2500) yaw += 0.22 * dt;
+        else dotsHold.until = now() + 2000;   // still coasting: keep the dots tucked away
+        if (introT >= 0) {               // one turn when the model is opened, easing to a stop face-on
+          introT += dt;
+          var ip = Math.min(1, introT / INTRO);
+          yaw = opts.yaw - Math.PI * 2 * Math.pow(1 - ip, 3);
+          if (ip >= 1) introT = -1;
+        }
       }
       if (!reduced) bobT += dt;
       draw();
@@ -2300,9 +2325,10 @@ can for scale</span></span>
     else window.addEventListener('resize', function () { if (fit()) draw(); });
     reducedListeners.push(function () { start(); });
     cv.addEventListener('webglcontextlost', function (e) { e.preventDefault(); stop(); fallback(); });
-    picker.onChange(refresh);
+    picker.onChange(function (id) { if (id === opts.item) beginIntro(); refresh(); });
 
     snapshot();
+    if (picker.current === opts.item) beginIntro();
     refresh();
     return api;
   }
