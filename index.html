@@ -1819,6 +1819,20 @@ can for scale</span></span>
       g2.restore();
     }
 
+    // Contactless badge for the station screen: a ring with four arcs inside, like the usual tap-to-pay mark.
+    // The arcs share a centre to the left of the ring and sweep 36 degrees each way.
+    function tapBadge(g2, cx, cy, r, color) {
+      g2.save();
+      g2.strokeStyle = color; g2.lineCap = 'round';
+      g2.lineWidth = r * 0.12;
+      g2.beginPath(); g2.arc(cx, cy, r * 0.94, 0, Math.PI * 2); g2.stroke();
+      g2.lineWidth = r * 0.18;
+      for (var i = 0; i < 4; i++) {
+        g2.beginPath(); g2.arc(cx - r * 0.91, cy, r * (0.386 + i * 0.3), -0.63, 0.63); g2.stroke();
+      }
+      g2.restore();
+    }
+
     // Screen picture: 1024 x 640 (16:10, like the 10.1-inch panel). Tap your card on the reader below.
     var sc = document.createElement('canvas'); sc.width = 1024; sc.height = 640;
     (function drawScreen(g2, w, h) {
@@ -1841,7 +1855,7 @@ can for scale</span></span>
       // Tap card: the contactless mark, pointing down to the card reader
       var box = 344, qx = w - 104 - box, qy = 104;
       g2.fillStyle = '#ffffff'; rrect(g2, qx, qy, box, box, 30); g2.fill();
-      tapMark(g2, qx + box / 2 + 24, qy + box / 2 - 26, 190, '#0b0b0d', 22);
+      tapBadge(g2, qx + box / 2, qy + box / 2 - 30, 112, '#0b0b0d');
       g2.fillStyle = '#0b0b0d'; g2.font = '700 30px ' + SANS; g2.textAlign = 'center';
       g2.fillText('Tap your card', qx + box / 2, qy + box - 40);
       g2.fillStyle = '#f5c518'; g2.font = '700 34px ' + SANS;
