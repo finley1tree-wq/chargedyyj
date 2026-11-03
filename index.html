@@ -237,10 +237,11 @@ body {
 .panel.zoomable:not([hidden]) { animation: picIn .35s ease .22s both; }
 @keyframes picIn { from { opacity: 0; } to { opacity: 1; } }
 
-.panel-3d { cursor: grab; touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; }
+/* One finger turns the model both ways (pan-y let phones scroll on up/down drags); two fingers still zoom the page */
+.panel-3d { cursor: grab; touch-action: pinch-zoom; -webkit-user-select: none; user-select: none; }
 .panel-3d.dragging { cursor: grabbing; }
 .panel-3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.panel-3d.no-3d { cursor: default; }
+.panel-3d.no-3d { cursor: default; touch-action: auto; }
 
 .viewbar {
   position: absolute;
@@ -2217,7 +2218,7 @@ can for scale</span></span>
     }
 
     // Turning: drag with inertia, arrow keys, one smooth spin when the model is opened, and a gentle idle bob
-    var yaw = opts.yaw, pitch = 0.04, spin = 0, dragging = false, lastX = 0, lastY = 0, lastTouch = -1e9, lastMove = 0;
+    var yaw = opts.yaw, pitch = 0.04, spin = 0, dragging = false, dragId = null, lastX = 0, lastY = 0, lastTouch = -1e9, lastMove = 0;
     var bobT = 0, lastFrame = 0, introT = -1, INTRO = 2.2;
     function beginIntro() {
       if (userTurned3D || reduced || dead) return;
@@ -2252,7 +2253,8 @@ can for scale</span></span>
 
     el.addEventListener('pointerdown', function (e) {
       if (dead || (e.pointerType === 'mouse' && e.button !== 0)) return;
-      dragging = true; spin = 0; lastX = e.clientX; lastY = e.clientY; lastMove = now();
+      if (dragging && dragId !== e.pointerId && el.hasPointerCapture && el.hasPointerCapture(dragId)) return;   // a second finger doesn't take over
+      dragging = true; dragId = e.pointerId; spin = 0; lastX = e.clientX; lastY = e.clientY; lastMove = now();
       userTurned3D = true; introT = -1;   // a touch stops the spin for good
       dotsHold.until = now() + 2000; wakeDots();
       el.classList.add('dragging');
@@ -2260,7 +2262,7 @@ can for scale</span></span>
       lastTouch = now(); start();
     });
     el.addEventListener('pointermove', function (e) {
-      if (!dragging) return;
+      if (!dragging || e.pointerId !== dragId) return;
       var ddx = e.clientX - lastX, ddy = e.clientY - lastY;
       lastX = e.clientX; lastY = e.clientY; lastMove = now();
       dotsHold.until = now() + 2000;
@@ -2268,14 +2270,18 @@ can for scale</span></span>
       pitch = clamp(pitch + ddy * 0.005, -0.35, 0.6);
       lastTouch = now(); start();
     });
-    function end() {
-      if (!dragging) return;
-      dragging = false; el.classList.remove('dragging'); lastTouch = now();
+    function end(e) {
+      if (!dragging || e.pointerId !== dragId) return;
+      dragging = false; dragId = null; el.classList.remove('dragging'); lastTouch = now();
       if (now() - lastMove > 60) spin = 0;   // held still before letting go: no fling
     }
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
     el.addEventListener('lostpointercapture', end);
+    // Older iPhones can ignore touch-action: stop a one-finger drag from scrolling the page (pinch still zooms)
+    el.addEventListener('touchmove', function (e) {
+      if (dragging && e.touches.length === 1 && e.cancelable) e.preventDefault();
+    }, { passive: false });
     el.addEventListener('keydown', function (e) {
       if (dead) return;
       if (e.key === 'ArrowLeft') yaw -= 0.25;
