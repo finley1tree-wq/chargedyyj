@@ -1655,68 +1655,102 @@ can for scale</span></span>
   var MONO = '"SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
 
   // ---------- geometry helpers ----------
-  // ExtrudeGeometry is non-indexed, so its normals are flat per triangle and every bevel step
-  // shows as a band. Average the normals of faces that share a corner, but only across
-  // gentle angles (under 40 degrees), so real edges stay crisp.
-  function smoothNormals(geo) {
-    var pos = geo.attributes.position, n = pos.count, i, j;
-    var faceN = new Float32Array(n * 3), out = new Float32Array(n * 3), groups = {};
-    for (i = 0; i < n; i += 3) {
-      var ax = pos.getX(i), ay = pos.getY(i), az = pos.getZ(i);
-      var ux = pos.getX(i + 1) - ax, uy = pos.getY(i + 1) - ay, uz = pos.getZ(i + 1) - az;
-      var vx = pos.getX(i + 2) - ax, vy = pos.getY(i + 2) - ay, vz = pos.getZ(i + 2) - az;
-      var cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
-      var len = Math.hypot(cx, cy, cz) || 1;
-      for (j = 0; j < 3; j++) { faceN[(i + j) * 3] = cx / len; faceN[(i + j) * 3 + 1] = cy / len; faceN[(i + j) * 3 + 2] = cz / len; }
-    }
-    function key(k) { return Math.round(pos.getX(k) * 1e4) + '_' + Math.round(pos.getY(k) * 1e4) + '_' + Math.round(pos.getZ(k) * 1e4); }
-    for (i = 0; i < n; i++) { var kk = key(i); (groups[kk] || (groups[kk] = [])).push(i); }
-    var COS = Math.cos(40 * Math.PI / 180);
-    for (i = 0; i < n; i++) {
-      var g = groups[key(i)], sx = 0, sy = 0, sz = 0;
-      var fx = faceN[i * 3], fy = faceN[i * 3 + 1], fz = faceN[i * 3 + 2];
-      for (j = 0; j < g.length; j++) {
-        var o = g[j] * 3, gx = faceN[o], gy = faceN[o + 1], gz = faceN[o + 2];
-        if (gx * fx + gy * fy + gz * fz >= COS) { sx += gx; sy += gy; sz += gz; }
-      }
-      var l = Math.hypot(sx, sy, sz) || 1;
-      out[i * 3] = sx / l; out[i * 3 + 1] = sy / l; out[i * 3 + 2] = sz / l;
-    }
-    geo.setAttribute('normal', new window.THREE.BufferAttribute(out, 3));
+  // Every rounded outline is a polygon with true circular corners, so a solid, its normals, the
+  // openings cut into it and the trims that follow it all share exactly the same points.
+  function cleanPts(pts) {
+    var out = [];
+    pts.forEach(function (p) {
+      var q = out[out.length - 1];
+      if (!q || Math.abs(q[0] - p[0]) + Math.abs(q[1] - p[1]) > 1e-6) out.push([p[0], p[1]]);
+    });
+    while (out.length > 2 && Math.abs(out[0][0] - out[out.length - 1][0]) + Math.abs(out[0][1] - out[out.length - 1][1]) <= 1e-6) out.pop();
+    return out;
   }
-  function rrShape(T, w, h, rad) {
-    var s = new T.Shape(), x0 = -w / 2, y0 = -h / 2;
-    rad = Math.min(rad, w / 2, h / 2);
-    s.moveTo(x0 + rad, y0);
-    s.lineTo(x0 + w - rad, y0); s.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + rad);
-    s.lineTo(x0 + w, y0 + h - rad); s.quadraticCurveTo(x0 + w, y0 + h, x0 + w - rad, y0 + h);
-    s.lineTo(x0 + rad, y0 + h); s.quadraticCurveTo(x0, y0 + h, x0, y0 + h - rad);
-    s.lineTo(x0, y0 + rad); s.quadraticCurveTo(x0, y0, x0 + rad, y0);
+  // Rounded rectangle, centred on 0, counter-clockwise, seg steps per corner.
+  function rrPoints(w, h, rad, seg) {
+    rad = Math.max(0, Math.min(rad, w / 2, h / 2));
+    seg = seg || 12;
+    var hx = w / 2 - rad, hy = h / 2 - rad, C = [[hx, -hy], [hx, hy], [-hx, hy], [-hx, -hy]], pts = [];
+    for (var c = 0; c < 4; c++) {
+      for (var i = 0; i <= seg; i++) {
+        var a = (c - 1 + i / seg) * Math.PI / 2;
+        pts.push([C[c][0] + rad * Math.cos(a), C[c][1] + rad * Math.sin(a)]);
+      }
+    }
+    return cleanPts(pts);
+  }
+  function polyShape(T, pts) {
+    pts = cleanPts(pts);
+    var s = new T.Shape();
+    s.moveTo(pts[0][0], pts[0][1]);
+    for (var i = 1; i < pts.length; i++) s.lineTo(pts[i][0], pts[i][1]);
+    s.closePath();
     return s;
   }
-  // Box whose FRONT outline (x/y) is a rounded rectangle, every edge softened by b. Centered.
-  function roundedBox(T, w, h, d, b, corner) {
+  function rrShape(T, w, h, rad, seg) { return polyShape(T, rrPoints(w, h, rad, seg)); }
+  // The outline pushed out by d along its normals (counter-clockwise outline, so +d is outward).
+  function grow(pts, d) {
+    var n = pts.length, out = [];
+    for (var i = 0; i < n; i++) {
+      var a = pts[(i + n - 1) % n], b = pts[i], c = pts[(i + 1) % n];
+      var tx = c[0] - a[0], ty = c[1] - a[1], tl = Math.hypot(tx, ty) || 1;
+      out.push([b[0] + ty / tl * d, b[1] - tx / tl * d]);
+    }
+    return out;
+  }
+  // Exact normals for a bevelled extrusion. ExtrudeGeometry grows the shape by the bevel radius, so
+  // the surface sits at that radius from its "core" (the shape, z = 0..depth): each normal points from
+  // the nearest core point to the vertex. Bevels and rounded corners shade as one smooth curve, with
+  // no bands from the bevel steps and no bias from how the flat faces happen to be triangulated.
+  function coreNormals(T, geo, contours, depth) {
+    var pos = geo.attributes.position, n = pos.count, out = new Float32Array(n * 3), seg = [], i, k;
+    contours.forEach(function (c) {
+      for (var j = 0; j < c.length; j++) {
+        var a = c[j], b = c[(j + 1) % c.length];
+        seg.push(a.x, a.y, b.x - a.x, b.y - a.y);
+      }
+    });
+    for (i = 0; i < n; i++) {
+      var x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), best = Infinity, bx = 0, by = 0;
+      for (k = 0; k < seg.length; k += 4) {
+        var dx = seg[k + 2], dy = seg[k + 3], L = dx * dx + dy * dy;
+        var t = L > 0 ? ((x - seg[k]) * dx + (y - seg[k + 1]) * dy) / L : 0;
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        var ex = x - seg[k] - dx * t, ey = y - seg[k + 1] - dy * t, d = ex * ex + ey * ey;
+        if (d < best) { best = d; bx = ex; by = ey; }
+      }
+      var bz = z < 0 ? z : z > depth ? z - depth : 0, l = Math.sqrt(bx * bx + by * by + bz * bz) || 1;
+      out[i * 3] = bx / l; out[i * 3 + 1] = by / l; out[i * 3 + 2] = bz / l;
+    }
+    geo.setAttribute('normal', new T.BufferAttribute(out, 3));
+  }
+  // Extrusion with a round bevel of radius b on both faces.
+  function bevelSolid(T, shape, depth, b, bseg) {
+    var geo = new T.ExtrudeGeometry(shape, {
+      depth: depth, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: bseg || 8, curveSegments: 1, steps: 1
+    });
+    var ex = shape.extractPoints(1);
+    coreNormals(T, geo, [ex.shape].concat(ex.holes), depth);
+    return geo;
+  }
+  // Box whose FRONT outline (x/y) is a rounded rectangle, every edge rounded by b. Centered.
+  function roundedBox(T, w, h, d, b, corner, seg, bseg) {
     b = Math.min(b, d / 2 - 0.001, w / 2 - 0.001, h / 2 - 0.001);
     var depth = Math.max(0.0001, d - 2 * b);
-    var geo = new T.ExtrudeGeometry(rrShape(T, w - 2 * b, h - 2 * b, corner === undefined ? b * 0.6 : corner), {
-      depth: depth, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 6, curveSegments: 10
-    });
+    var geo = bevelSolid(T, rrShape(T, w - 2 * b, h - 2 * b, corner === undefined ? b * 0.6 : corner, seg), depth, b, bseg);
     geo.translate(0, 0, -depth / 2);
-    smoothNormals(geo);
     return geo;
   }
   // Box whose FOOTPRINT (x/z) is a rounded rectangle (soft vertical corners), from y = 0 to y = h.
-  function footprintBox(T, w, h, d, b, rad) {
+  function footprintBox(T, w, h, d, b, rad, seg) {
     var depth = Math.max(0.0001, h - 2 * b);
-    var geo = new T.ExtrudeGeometry(rrShape(T, w - 2 * b, d - 2 * b, rad), {
-      depth: depth, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 6, curveSegments: 12
-    });
+    var geo = bevelSolid(T, rrShape(T, w - 2 * b, d - 2 * b, rad, seg), depth, b);
     geo.rotateX(-Math.PI / 2);   // extrusion now runs up the y axis
     geo.translate(0, b, 0);
-    smoothNormals(geo);
     return geo;
   }
-  // Polygon (z, y) side profile, shrunk by b, corners rounded, extruded across the full width w with bevel b.
+  // Polygon (z, y) side profile, shrunk by b, corners rounded with circular arcs of up to rad,
+  // extruded across the full width w with a round bevel b.
   function profileSolid(T, pts, w, b, rad) {
     var n = pts.length, inset = [], i;
     var area = 0;
@@ -1733,33 +1767,123 @@ can for scale</span></span>
       var t = ((l2[0] - l1[0]) * l2[3] - (l2[1] - l1[1]) * l2[2]) / den;
       inset.push([l1[0] + l1[2] * t, l1[1] + l1[3] * t]);
     }
-    var s = new T.Shape();
+    var out = [];
     for (i = 0; i < n; i++) {
       var pv = inset[(i + n - 1) % n], cu = inset[i], nx2 = inset[(i + 1) % n];
       var a1 = Math.hypot(pv[0] - cu[0], pv[1] - cu[1]), a2 = Math.hypot(nx2[0] - cu[0], nx2[1] - cu[1]);
-      var rr = Math.min(rad, a1 / 2, a2 / 2);
-      var sx = cu[0] + (pv[0] - cu[0]) / a1 * rr, sy = cu[1] + (pv[1] - cu[1]) / a1 * rr;
-      var ex = cu[0] + (nx2[0] - cu[0]) / a2 * rr, ey = cu[1] + (nx2[1] - cu[1]) / a2 * rr;
-      if (i === 0) s.moveTo(sx, sy); else s.lineTo(sx, sy);
-      s.quadraticCurveTo(cu[0], cu[1], ex, ey);
+      var ux = (pv[0] - cu[0]) / a1, uy = (pv[1] - cu[1]) / a1, vx = (nx2[0] - cu[0]) / a2, vy = (nx2[1] - cu[1]) / a2;
+      var phi = Math.acos(clamp(ux * vx + uy * vy, -1, 1)); // angle between the two edges
+      var rr = Math.min(rad, a1 / 2, a2 / 2);               // where the arc meets each edge
+      if (Math.PI - phi < 0.01 || rr <= 0) { out.push(cu); continue; }
+      // An inside (concave) corner: the bevel grows the shape by b, which shrinks this arc by b, so it
+      // has to start out bigger than b or the bevel folds over itself in the corner.
+      var turn = (cu[0] - pv[0]) * (nx2[1] - cu[1]) - (cu[1] - pv[1]) * (nx2[0] - cu[0]);
+      if (turn * sgn < 0) rr = Math.min(Math.max(rr, 1.3 * b / Math.tan(phi / 2)), a1 / 2, a2 / 2);
+      var bx = ux + vx, by = uy + vy, bl = Math.hypot(bx, by);
+      var dc = rr / Math.cos(phi / 2), R = rr * Math.tan(phi / 2);
+      var ox = cu[0] + bx / bl * dc, oy = cu[1] + by / bl * dc;
+      var t0 = Math.atan2(cu[1] + uy * rr - oy, cu[0] + ux * rr - ox);
+      var dt = Math.atan2(cu[1] + vy * rr - oy, cu[0] + vx * rr - ox) - t0;
+      while (dt > Math.PI) dt -= 2 * Math.PI;
+      while (dt < -Math.PI) dt += 2 * Math.PI;
+      var steps = Math.max(2, Math.ceil(Math.abs(dt) / (Math.PI / 24)));
+      for (var k = 0; k <= steps; k++) out.push([ox + R * Math.cos(t0 + dt * k / steps), oy + R * Math.sin(t0 + dt * k / steps)]);
     }
-    s.closePath();
     var depth = w - 2 * b;
-    var geo = new T.ExtrudeGeometry(s, {
-      depth: depth, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 6, curveSegments: 10
-    });
+    var geo = bevelSolid(T, polyShape(T, out), depth, b);
     geo.rotateY(-Math.PI / 2); // shape (z, y) -> world; extrusion runs along -x
     geo.translate(depth / 2, 0, 0);
-    smoothNormals(geo);
     return geo;
   }
   // Flat rounded decal (x/y) whose texture covers the whole rectangle.
   function decalGeo(T, w, h, rad) {
-    var geo = new T.ShapeGeometry(rrShape(T, w, h, rad), 8);
+    var geo = new T.ShapeGeometry(rrShape(T, w, h, rad, 8));
     var pos = geo.attributes.position, uv = geo.attributes.uv;
     for (var i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / w + 0.5, pos.getY(i) / h + 0.5);
     uv.needsUpdate = true;
     return geo;
+  }
+  // Several geometries (each moved by x, y, z) as one, so repeated parts cost one draw call.
+  function mergeGeos(T, list) {
+    var parts = list.map(function (it) {
+      var g = it[0].index ? it[0].toNonIndexed() : it[0].clone();
+      g.translate(it[1], it[2], it[3]);
+      return g;
+    });
+    var out = new T.BufferGeometry();
+    ['position', 'normal', 'uv', 'uv2'].forEach(function (nm) {
+      if (!parts.every(function (g) { return g.attributes[nm]; })) return;
+      var size = parts[0].attributes[nm].itemSize, total = 0, off = 0;
+      parts.forEach(function (g) { total += g.attributes[nm].count; });
+      var arr = new Float32Array(total * size);
+      parts.forEach(function (g) { arr.set(g.attributes[nm].array, off); off += g.attributes[nm].count * size; });
+      out.setAttribute(nm, new T.BufferAttribute(arr, size));
+    });
+    parts.forEach(function (g) { g.dispose(); });
+    return out;
+  }
+  function indexedGeo(T, p, nn, uv, idx) {
+    var g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(p, 3));
+    g.setAttribute('normal', new T.Float32BufferAttribute(nn, 3));
+    if (uv) g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    return g;
+  }
+  // A moulded opening in a flat face (the face is z = 0, facing +z). The outline (counter-clockwise)
+  // is the opening; its edge rolls over in a quarter round of radius r into straight walls down to
+  // z = -deep, closed by a back. Returns the rounded edge, the pocket (walls + back), a stencil mask
+  // (the opening and its rounded edge, grown by maskGrow) and the rim, where the edge meets the face.
+  // The pocket carries uv2.y = depth / aoLen for an ambient-occlusion map (darker deeper in).
+  function openingGeos(T, outline, r, deep, seg, maskGrow, aoLen) {
+    var n = outline.length, rim = grow(outline, r), ep = [], en = [], ei = [], wp = [], wn = [], wi = [], wu = [], i, j;
+    var aoV = (deep - r) / (aoLen || deep);
+    for (i = 0; i < n; i++) {
+      var p = outline[i], ox = (rim[i][0] - p[0]) / r, oy = (rim[i][1] - p[1]) / r;
+      for (j = 0; j <= seg; j++) {
+        var a = j / seg * Math.PI / 2, s = Math.sin(a), c = Math.cos(a);
+        ep.push(p[0] + ox * r * (1 - s), p[1] + oy * r * (1 - s), r * (c - 1));
+        en.push(-ox * s, -oy * s, c);
+      }
+      wp.push(p[0], p[1], -r, p[0], p[1], -deep);
+      wn.push(-ox, -oy, 0, -ox, -oy, 0);
+      wu.push(0, 0, 0, aoV);
+    }
+    for (i = 0; i < n; i++) {
+      var i2 = (i + 1) % n;
+      for (j = 0; j < seg; j++) {
+        var a0 = i * (seg + 1) + j, b0 = i2 * (seg + 1) + j;
+        ei.push(a0, b0, a0 + 1, b0, b0 + 1, a0 + 1);
+      }
+      wi.push(2 * i, 2 * i2, 2 * i + 1, 2 * i2, 2 * i2 + 1, 2 * i + 1);
+    }
+    var back = new T.ShapeGeometry(polyShape(T, outline)), bu = new Float32Array(back.attributes.position.count * 2);
+    for (i = 1; i < bu.length; i += 2) bu[i] = aoV;
+    back.setAttribute('uv2', new T.BufferAttribute(bu, 2));
+    back.translate(0, 0, -deep);
+    var walls = indexedGeo(T, wp, wn, null, wi);
+    walls.setAttribute('uv2', new T.Float32BufferAttribute(wu, 2));
+    var pocket = mergeGeos(T, [[walls, 0, 0, 0], [back, 0, 0, 0]]);
+    walls.dispose(); back.dispose();
+    return {
+      edge: indexedGeo(T, ep, en, null, ei),
+      pocket: pocket,
+      mask: new T.ShapeGeometry(polyShape(T, maskGrow ? grow(rim, maskGrow) : rim)),
+      rim: rim
+    };
+  }
+  // Upright band round a footprint outline (outline x, y -> world x, z), from y0 to y1, facing out.
+  // Its v texture coordinate runs from 0 at the bottom to 1 at the top.
+  function wallRing(T, outline, y0, y1) {
+    var n = outline.length, g = grow(outline, 1), p = [], nn = [], uv = [], idx = [], i;
+    for (i = 0; i < n; i++) {
+      var o = outline[i], ox = g[i][0] - o[0], oz = g[i][1] - o[1];
+      p.push(o[0], y0, o[1], o[0], y1, o[1]);
+      nn.push(ox, 0, oz, ox, 0, oz);
+      uv.push(i / n, 0, i / n, 1);
+    }
+    for (i = 0; i < n; i++) { var k = (i + 1) % n; idx.push(2 * i, 2 * i + 1, 2 * k, 2 * k, 2 * i + 1, 2 * k + 1); }
+    return indexedGeo(T, p, nn, uv, idx);
   }
   function rrect(g2, x, y, w, h, rad) {
     g2.beginPath();
@@ -1781,33 +1905,125 @@ can for scale</span></span>
     g2.fillStyle = gr; g2.fillRect(0, 0, 128, 128);
     var t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; return t;
   }
+  // Vertical glow strip: clear at the top and bottom, full in the middle.
+  function bandTex(T) {
+    var c = document.createElement('canvas'); c.width = 4; c.height = 128;
+    var g2 = c.getContext('2d'), gr = g2.createLinearGradient(0, 0, 0, 128);
+    [[0, 0], [0.25, 0.04], [0.38, 0.2], [0.46, 0.6], [0.5, 1], [0.54, 0.6], [0.62, 0.2], [0.75, 0.04], [1, 0]].forEach(function (s) {
+      gr.addColorStop(s[0], 'rgba(255,255,255,' + s[1] + ')');
+    });
+    g2.fillStyle = gr; g2.fillRect(0, 0, 4, 128);
+    return new T.CanvasTexture(c);
+  }
+  // Ambient occlusion down a pocket (aoMap, read through uv2): open at v = 0, deep shade from v = 1.
+  // The deepest shade still lets a little light in, so the walls keep a faint gradient (no flat black hole).
+  function pocketAoTex(T) {
+    var c = document.createElement('canvas'); c.width = 4; c.height = 64;
+    var g2 = c.getContext('2d'), gr = g2.createLinearGradient(0, 64, 0, 0);
+    gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.15, '#bebebe'); gr.addColorStop(0.45, '#6e6e6e'); gr.addColorStop(1, '#505050');
+    g2.fillStyle = gr; g2.fillRect(0, 0, 4, 64);
+    return new T.CanvasTexture(c);
+  }
   function flatMat(T, tex, opacity) {
     return new T.MeshBasicMaterial({ map: tex, transparent: true, opacity: opacity, depthWrite: false, toneMapped: false });
   }
-  // Studio environment for reflections: a dark room with soft boxes, prefiltered once (PMREM).
+  // Shadow for a rounded-rectangle footprint fp = [width, depth, corner] with pad round it: alpha is
+  // full under the footprint and falls to 0 at the pad's edge as (1 - distance / pad) ^ power.
+  function footShadowTex(T, fp, pad, power, res) {
+    var PW = fp[0] + 2 * pad, PD = fp[1] + 2 * pad, cw = res, ch = Math.max(8, Math.round(res * PD / PW));
+    var hx = fp[0] / 2 - fp[2], hy = fp[1] / 2 - fp[2];
+    var c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    var g2 = c.getContext('2d'), img = g2.createImageData(cw, ch), d = img.data;
+    for (var j = 0; j < ch; j++) {
+      var qy = Math.abs((j + 0.5) / ch - 0.5) * PD - hy;
+      for (var i = 0; i < cw; i++) {
+        var qx = Math.abs((i + 0.5) / cw - 0.5) * PW - hx;
+        var dist = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - fp[2];
+        var t = 1 - Math.max(dist, 0) / pad;
+        d[(j * cw + i) * 4 + 3] = t > 0 ? Math.round(255 * Math.pow(t, power)) : 0;
+      }
+    }
+    g2.putImageData(img, 0, 0);
+    return new T.CanvasTexture(c);
+  }
+  // Flat (unlit) colours are sRGB hex. three r150 would use the hex numbers as linear light, which
+  // washes them out on screen (the yellow came out pale lemon, the green mint), so convert them.
+  function srgb(T, hex) {
+    var c = new T.Color(hex), cm = T.ColorManagement;
+    return (cm && cm.enabled === true) ? c : c.convertSRGBToLinear();   // (newer three.js converts hex itself)
+  }
+  // Anti-glare for clear layers over a screen or a print: soft studio sheens pass almost as they are,
+  // but a bright light box sweeping across while the model turns is held under 'cap' (linear light),
+  // so it never washes out what is underneath.
+  function softCap(mat, cap) {
+    mat.onBeforeCompile = function (sh) {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <output_fragment>',
+        'outgoingLight = outgoingLight / ( 1.0 + outgoingLight / ' + cap.toFixed(4) + ' );\n\t#include <output_fragment>');
+    };
+    mat.customProgramCacheKey = function () { return 'softcap-' + cap; };
+    return mat;
+  }
+  // Soft-edged light panel for the studio: even in the middle, feathered at the edges.
+  function softboxTex(T) {
+    var N = 64, c = document.createElement('canvas'); c.width = c.height = N;
+    var g2 = c.getContext('2d'), img = g2.createImageData(N, N), d = img.data;
+    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) {
+      var u = Math.min(i + 0.5, N - i - 0.5) / N, v = Math.min(j + 0.5, N - j - 0.5) / N;
+      var e = Math.min(1, u / 0.18) * Math.min(1, v / 0.18), k = (j * N + i) * 4;
+      e = e * e * (3 - 2 * e);
+      d[k] = d[k + 1] = d[k + 2] = Math.round(255 * e); d[k + 3] = 255;
+    }
+    g2.putImageData(img, 0, 0);
+    return new T.CanvasTexture(c);
+  }
+  // Gradient light panel: bright along one edge (u = 1), fading smoothly to nothing at the other,
+  // with soft ends. Reflected in the screen glass it gives a soft sheen across one corner only.
+  function sheenTex(T) {
+    var N = 64, c = document.createElement('canvas'); c.width = c.height = N;
+    var g2 = c.getContext('2d'), img = g2.createImageData(N, N), d = img.data;
+    function ss(a, b, x) { var t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) {
+      var u = (i + 0.5) / N, v = (j + 0.5) / N, k = (j * N + i) * 4;
+      var e = Math.pow(ss(0, 0.9, u), 1.6) * ss(1, 0.92, u) * ss(0, 0.25, v) * ss(1, 0.75, v);
+      d[k] = d[k + 1] = d[k + 2] = Math.round(255 * e); d[k + 3] = 255;
+    }
+    g2.putImageData(img, 0, 0);
+    return new T.CanvasTexture(c);
+  }
+  // Studio environment for reflections, built here because the core three.js build has no
+  // RoomEnvironment: a dark room (a touch lighter overhead, darker under the floor line) with a big
+  // soft key box, a broad fill, an overhead box, two thin rim strips behind, a low front bounce and a
+  // gradient sheen high on the right, placed so the screen glass shows it as a soft gradient across
+  // its top-left corner while the rest of the screen stays black. Values above 1 are real HDR
+  // brightness. Prefiltered once with PMREM.
   function studioEnv(T, r) {
     var env = new T.Scene();
-    var boxGeo = new T.BoxGeometry(1, 1, 1);
-    var room = new T.Mesh(boxGeo, new T.MeshBasicMaterial({ color: new T.Color(0.006, 0.006, 0.007), side: T.BackSide }));
-    room.scale.set(14, 8, 14);
-    room.position.y = 2;
-    env.add(room);
-    function light(v, rgb, sx, sy, sz, px, py, pz) {
-      var c = new T.Color(rgb[0] * v, rgb[1] * v, rgb[2] * v);
-      var m = new T.Mesh(boxGeo, new T.MeshBasicMaterial({ color: c }));
-      m.scale.set(sx, sy, sz); m.position.set(px, py, pz); env.add(m);
+    var roomGeo = new T.SphereGeometry(30, 48, 24), rp = roomGeo.attributes.position, col = new Float32Array(rp.count * 3);
+    for (var i = 0; i < rp.count; i++) {
+      var e = rp.getY(i) / 30;
+      var v = e < 0 ? 0.003 + 0.007 * Math.pow(1 + e, 4) : 0.010 + 0.018 * e;
+      col[i * 3] = v; col[i * 3 + 1] = v * 1.01; col[i * 3 + 2] = v * 1.07;
     }
-    light(1.1, [1, 1, 1], 4, 0.1, 3, 0, 5.8, 1);          // overhead soft box
-    light(4.5, [1, 1, 1], 0.1, 4.5, 0.9, 6.8, 1.6, 2.5);  // key strip, front right
-    light(1.6, [1, 1, 1], 0.1, 4.0, 0.7, -6.8, 1.4, 1.5); // fill strip, left
-    light(2.2, [0.85, 0.85, 1], 2.0, 3.5, 0.1, -2.5, 1.8, -6.8); // cool rim panel, back left
-    light(0.3, [1, 1, 1], 6, 0.4, 0.1, 0, 0.4, 6.8);     // low front bounce (catches the bevels)
+    roomGeo.setAttribute('color', new T.BufferAttribute(col, 3));
+    env.add(new T.Mesh(roomGeo, new T.MeshBasicMaterial({ vertexColors: true, side: T.BackSide })));
+    var tex = softboxTex(T), sheen = sheenTex(T), quad = new T.PlaneGeometry(1, 1);
+    function panel(v, rgb, w, h, x, y, z, turn, map) {
+      var m = new T.Mesh(quad, new T.MeshBasicMaterial({ map: map || tex, color: new T.Color(rgb[0] * v, rgb[1] * v, rgb[2] * v), side: T.DoubleSide }));
+      m.scale.set(w, h, 1); m.position.set(x, y, z); m.lookAt(0, 0.6, 0); if (turn) m.rotateZ(turn); env.add(m);
+    }
+    panel(6.0, [1, 0.97, 0.93], 3.4, 4.6, 6.4, 3.2, 6.2);     // key: big soft box, front right, high
+    panel(1.3, [0.9, 0.94, 1], 4.6, 4.2, -7.6, 1.4, 3.4);     // fill: broad and dim, front left
+    panel(2.4, [1, 1, 1], 6.0, 4.4, 0, 8.6, 1.2);             // overhead box: tops and upper edges
+    panel(7.0, [0.86, 0.86, 1], 0.7, 6.0, -6.6, 2.6, -5.4);   // rim strip, back left
+    panel(5.0, [1, 1, 1], 0.6, 5.6, 7.0, 2.2, -5.0);          // rim strip, back right
+    panel(0.7, [1, 1, 1], 9.0, 0.9, 0, -0.2, 8.6);            // low front bounce for the lower edges
+    panel(1.0, [1, 1, 1], 1.07, 3.0, 4.07, 7.8, 1.92, 1.1, sheen); // sheen: a soft gradient across the top-left of the screen glass
     var pmrem = new T.PMREMGenerator(r);
-    var tex = pmrem.fromScene(env, 0.035).texture;
+    var out = pmrem.fromScene(env, 0.02).texture;
     pmrem.dispose();
-    boxGeo.dispose();
+    roomGeo.dispose(); quad.dispose(); tex.dispose(); sheen.dispose();
     env.traverse(function (o) { if (o.material) o.material.dispose(); });
-    return tex;
+    return out;
   }
 
 
@@ -1821,20 +2037,11 @@ can for scale</span></span>
   function buildStation(T, kit) {
     var W = 2.6, H = 3.5, D = 1.78, FRONT = D / 2;
     var BODY_H = 2.21, SEAM_Y = 1.17;
+    var BB = 0.045, BR = 0.17;   // body edge radius, and the corner radius of its footprint core
+    var S = kit.tex || 1;        // texture detail: 1 on phones, 1.5 or 2 on big sharp views
     var station = new T.Group();
 
-    // Contactless "tap" symbol: three arcs opening to the right, like the usual tap icon.
-    function tapMark(g2, cx, cy, size, color, lw) {
-      g2.save();
-      g2.strokeStyle = color; g2.lineWidth = lw; g2.lineCap = 'round';
-      for (var i = 0; i < 3; i++) {
-        var r = size * (0.3 + i * 0.35);
-        g2.beginPath(); g2.arc(cx - size * 0.45, cy, r, -0.78, 0.78); g2.stroke();
-      }
-      g2.restore();
-    }
-
-    // Contactless badge for the station screen: a ring with four arcs inside, like the usual tap-to-pay mark.
+    // Contactless badge for the station screen and the reader: a ring with four arcs inside, like the usual tap-to-pay mark.
     // The arcs share a centre to the left of the ring and sweep 36 degrees each way.
     function tapBadge(g2, cx, cy, r, color) {
       g2.save();
@@ -1849,7 +2056,8 @@ can for scale</span></span>
     }
 
     // Screen picture: 1024 x 640 (16:10, like the 10.1-inch panel). Tap your card on the reader below.
-    var sc = document.createElement('canvas'); sc.width = 1024; sc.height = 640;
+    var sc = document.createElement('canvas'); sc.width = Math.round(1024 * S); sc.height = Math.round(640 * S);
+    var sctx = sc.getContext('2d'); sctx.scale(sc.width / 1024, sc.height / 640);
     (function drawScreen(g2, w, h) {
       var bg = g2.createLinearGradient(0, 0, w, h);
       bg.addColorStop(0, '#16171b'); bg.addColorStop(1, '#070708');
@@ -1878,71 +2086,133 @@ can for scale</span></span>
       g2.fillStyle = '#8f8f8f'; g2.font = '400 17px ' + MONO;
       g2.fillText('ON THE READER BELOW', qx + box / 2, qy + box + 84);
       g2.textAlign = 'left';
-    })(sc.getContext('2d'), sc.width, sc.height);
+    })(sctx, 1024, 640);
 
-    // Card reader face (a WisePad-style reader): screen with the tap mark, then the keypad.
-    var rc = document.createElement('canvas'); rc.width = 330; rc.height = 660;
+    // Card reader face (a WisePad-style reader): status lights, a screen that shows the same tap card
+    // as the station screen plus the price, then a keypad with lettered keys and marked function keys.
+    var rc = document.createElement('canvas'); rc.width = Math.round(330 * S); rc.height = Math.round(660 * S);
+    var rctx = rc.getContext('2d'); rctx.scale(rc.width / 330, rc.height / 660);
     (function drawReader(g2, w, h) {
       g2.fillStyle = '#141416'; g2.fillRect(0, 0, w, h);
       for (var i = 0; i < 4; i++) { g2.fillStyle = i === 0 ? '#3dff86' : '#2b2f2c'; g2.beginPath(); g2.arc(w / 2 - 54 + i * 36, 26, 7, 0, Math.PI * 2); g2.fill(); }
-      g2.fillStyle = '#07080a'; rrect(g2, 26, 48, w - 52, 250, 14); g2.fill();
-      tapMark(g2, w / 2 + 14, 150, 120, '#ffffff', 11);
-      g2.fillStyle = '#f5c518'; g2.font = '700 34px ' + SANS; g2.textAlign = 'center';
-      g2.fillText('$9.00', w / 2, 264);
-      var keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', ''];
-      for (var k = 0; k < 12; k++) {
-        var kx = 34 + (k % 3) * 92, ky = 322 + Math.floor(k / 3) * 66;
-        g2.fillStyle = '#26262a'; rrect(g2, kx, ky, 78, 52, 12); g2.fill();
-        if (keys[k]) { g2.fillStyle = '#d6d6da'; g2.font = '500 26px ' + SANS; g2.fillText(keys[k], kx + 39, ky + 35); }
+
+      // Screen: the station screen's dark field, warm glow and white tap card, at reader size
+      var sx = 26, sy = 48, sw = w - 52, sh = 250;
+      g2.save(); rrect(g2, sx, sy, sw, sh, 14); g2.clip();
+      var bg = g2.createLinearGradient(sx, sy, sx + sw, sy + sh);
+      bg.addColorStop(0, '#16171b'); bg.addColorStop(1, '#070708');
+      g2.fillStyle = bg; g2.fillRect(sx, sy, sw, sh);
+      var glow = g2.createRadialGradient(sx + sw * 0.8, sy + sh * 0.9, 4, sx + sw * 0.8, sy + sh * 0.9, 200);
+      glow.addColorStop(0, 'rgba(245,197,24,0.07)'); glow.addColorStop(1, 'rgba(245,197,24,0)');
+      g2.fillStyle = glow; g2.fillRect(sx, sy, sw, sh);
+      g2.restore();
+      g2.textBaseline = 'alphabetic'; g2.textAlign = 'left'; g2.font = '700 13px ' + SANS;
+      g2.fillStyle = '#ffffff'; g2.fillText('CHARGED', sx + 16, sy + 26);
+      g2.fillStyle = '#f5c518'; g2.fillText('YYJ', sx + 16 + g2.measureText('CHARGED ').width, sy + 26);
+      var box = 122, bx = w / 2 - box / 2, by = sy + 40;
+      g2.fillStyle = '#ffffff'; rrect(g2, bx, by, box, box, 14); g2.fill();
+      tapBadge(g2, w / 2, by + box / 2 - 12, 40, '#0b0b0d');
+      g2.textAlign = 'center';
+      g2.fillStyle = '#0b0b0d'; g2.font = '700 12px ' + SANS; g2.fillText('Tap your card', w / 2, by + box - 14);
+      g2.fillStyle = '#f5c518'; g2.font = '700 34px ' + SANS; g2.fillText('$9.00', w / 2, sy + sh - 22);
+
+      // A moulded key: soft shadow below, a top-to-bottom shade, and a light catch on the top edge
+      function key(x, y, kw, kh, top, bottom) {
+        g2.fillStyle = 'rgba(0,0,0,0.55)'; rrect(g2, x, y + 3, kw, kh, 12); g2.fill();
+        var kg = g2.createLinearGradient(0, y, 0, y + kh);
+        kg.addColorStop(0, top); kg.addColorStop(1, bottom);
+        g2.fillStyle = kg; rrect(g2, x, y, kw, kh, 12); g2.fill();
+        g2.strokeStyle = 'rgba(255,255,255,0.12)'; g2.lineWidth = 1.5;
+        g2.beginPath(); g2.moveTo(x + 11, y + 1.5); g2.lineTo(x + kw - 11, y + 1.5); g2.stroke();
       }
-      ['#d6463a', '#e2b21c', '#2fbf63'].forEach(function (c, i) {
-        g2.fillStyle = c; rrect(g2, 34 + i * 92, 590, 78, 46, 12); g2.fill();
+      var keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
+      var abc = ['', 'ABC', 'DEF', 'GHI', 'JKL', 'MNO', 'PQRS', 'TUV', 'WXYZ', '', '', ''];
+      for (var k = 0; k < 12; k++) {
+        var kx = 34 + (k % 3) * 92, ky = 322 + Math.floor(k / 3) * 66, mark = k === 9 || k === 11;
+        key(kx, ky, 78, 52, '#3a3a40', '#1c1c20');
+        g2.fillStyle = mark ? '#9a9aa0' : '#e4e4e8'; g2.font = (mark ? '500 22px ' : '600 24px ') + SANS;
+        g2.fillText(keys[k], kx + 39, ky + (abc[k] ? 29 : 34));
+        if (abc[k]) { g2.fillStyle = '#8c8c93'; g2.font = '600 9px ' + SANS; g2.fillText(abc[k], kx + 39, ky + 44); }
+        if (k === 4) { g2.fillStyle = 'rgba(255,255,255,0.35)'; rrect(g2, kx + 33, ky + 6, 12, 3, 1.5); g2.fill(); }   // the raised bar on 5, found by touch
+      }
+      // Function keys, marked the usual payment-terminal way: cancel X, clear <, enter O
+      [['#e0503f', '#b3322a'], ['#efc12c', '#c9940f'], ['#3bcb6e', '#249a4f']].forEach(function (c, i) {
+        var fx = 34 + i * 92, fy = 590, cx = fx + 39, cy = fy + 23;
+        key(fx, fy, 78, 46, c[0], c[1]);
+        g2.lineCap = 'round'; g2.lineJoin = 'round'; g2.lineWidth = 4.5;
+        g2.strokeStyle = i === 1 ? '#3b2c05' : '#ffffff';
+        g2.beginPath();
+        if (i === 0) { g2.moveTo(cx - 8, cy - 8); g2.lineTo(cx + 8, cy + 8); g2.moveTo(cx + 8, cy - 8); g2.lineTo(cx - 8, cy + 8); }
+        else if (i === 1) { g2.moveTo(cx + 5, cy - 9); g2.lineTo(cx - 5, cy); g2.lineTo(cx + 5, cy + 9); }
+        else g2.arc(cx, cy, 9, 0, Math.PI * 2);
+        g2.stroke();
       });
       g2.textAlign = 'left';
-    })(rc.getContext('2d'), rc.width, rc.height);
+    })(rctx, 330, 660);
     var readerTex = canvasTex(T, rc, kit.aniso);
     var screenTex = canvasTex(T, sc, kit.aniso);
 
-    // --- Materials
-    var satin = new T.MeshPhysicalMaterial({ color: 0x060607, roughness: 0.46, metalness: 0, clearcoat: 0.25, clearcoatRoughness: 0.4, envMapIntensity: 0.45 });
-    var gloss = new T.MeshPhysicalMaterial({ color: 0x050506, roughness: 0.14, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06 });
-    var recess = new T.MeshStandardMaterial({ color: 0x020203, roughness: 0.85, metalness: 0 });
-    var bankMat = new T.MeshPhysicalMaterial({ color: 0x070708, roughness: 0.3, metalness: 0, clearcoat: 0.7, clearcoatRoughness: 0.18 });
-    var yellow = new T.MeshBasicMaterial({ color: 0xf5c518, toneMapped: false });
-    var green = new T.MeshBasicMaterial({ color: 0x3dff86, toneMapped: false });
-    var lineMat = new T.MeshBasicMaterial({ color: 0x9a90f0, toneMapped: false });
-    var lineGlow = new T.MeshBasicMaterial({ color: 0x7d6dff, transparent: true, opacity: 0.16, blending: T.AdditiveBlending, depthWrite: false, toneMapped: false });
+    // --- Materials. PBR albedos are linear values (moulded black plastic is about 2 % reflective).
+    var satin = new T.MeshStandardMaterial({ color: new T.Color(0.02, 0.02, 0.022), roughness: 0.4, metalness: 0 });
+    // Screen border: black ink printed under the cover glass, with no shine of its own. Only the glass
+    // layer on top reflects, as on a real display (a glossy border under the glass would reflect the
+    // studio twice and turn grey).
+    var ink = new T.MeshLambertMaterial({ color: new T.Color(0.006, 0.006, 0.007) });
+    var recess = new T.MeshStandardMaterial({ color: new T.Color(0.012, 0.012, 0.013), roughness: 0.7, metalness: 0, aoMap: pocketAoTex(T), aoMapIntensity: 1 });
+    // Lights here cast no shadows, so let the pocket's occlusion shade the direct light too:
+    // the inside of an opening gets darker the deeper it goes, from every side.
+    recess.onBeforeCompile = function (sh) {
+      sh.fragmentShader = sh.fragmentShader.replace('#include <aomap_fragment>',
+        '#include <aomap_fragment>\n\treflectedLight.directDiffuse *= ambientOcclusion;\n\treflectedLight.directSpecular *= ambientOcclusion;');
+    };
+    // Slot panel: moulded semi-gloss black. The rounded lips of its openings are only a few pixels
+    // wide on a phone, so they get a rougher finish with no clear coat: a sharp highlight on such a
+    // thin curve would sparkle and crawl as the model turns.
+    var panelMat = new T.MeshPhysicalMaterial({ color: new T.Color(0.01, 0.01, 0.011), roughness: 0.3, metalness: 0, clearcoat: 0.35, clearcoatRoughness: 0.18 });
+    var lipMat = new T.MeshStandardMaterial({ color: new T.Color(0.01, 0.01, 0.011), roughness: 0.5, metalness: 0 });
+    // Power bank ends: satin-gloss, so the top edge shows a soft sheen, never a clipped white line.
+    var bankMat = new T.MeshPhysicalMaterial({ color: new T.Color(0.012, 0.012, 0.013), roughness: 0.38, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.25 });
+    var readerMat = new T.MeshPhysicalMaterial({ color: new T.Color(0.014, 0.014, 0.016), roughness: 0.34, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.16 });
+    var yellow = new T.MeshBasicMaterial({ color: srgb(T, 0xf5c518), toneMapped: false });
+    var green = new T.MeshBasicMaterial({ color: srgb(T, 0x3dff86), toneMapped: false });
+    var lineMat = new T.MeshBasicMaterial({ color: srgb(T, 0xc4bcff), toneMapped: false });
+    var lineGlow = new T.MeshBasicMaterial({ map: bandTex(T), color: srgb(T, 0x8f82ff), transparent: true, opacity: 0.55,
+      blending: T.AdditiveBlending, depthWrite: false, toneMapped: false });
+    var ledGlow = new T.MeshBasicMaterial({ map: radialTex(T, [[0, 'rgba(255,255,255,1)'], [0.25, 'rgba(255,255,255,0.35)'], [1, 'rgba(255,255,255,0)']]),
+      color: srgb(T, 0x3dff86), transparent: true, opacity: 0.45, blending: T.AdditiveBlending, depthWrite: false, toneMapped: false });
     var seamMat = new T.MeshBasicMaterial({ color: 0x000000 });
     var portMat = new T.MeshBasicMaterial({ color: 0x000000 });
     var screenMat = new T.MeshBasicMaterial({ map: screenTex, toneMapped: false });
-    // Glass glare: black + additive, so only the environment reflection shows over the screen.
-    var glare = new T.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.04, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03,
-      transparent: true, blending: T.AdditiveBlending, depthWrite: false, envMapIntensity: 0.3 });
+    // Glass: black + additive, so only the reflection of the studio shows over the screen.
+    var glass = softCap(new T.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.05, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02,
+      transparent: true, blending: T.AdditiveBlending, depthWrite: false, envMapIntensity: 0.8 }), 0.05);
+    // Stencil masks: drawn first, they mark the openings so the body face is not drawn over them.
+    var maskMat = new T.MeshBasicMaterial({
+      colorWrite: false, depthWrite: false, stencilWrite: true, stencilRef: 1,
+      stencilFunc: T.AlwaysStencilFunc, stencilZPass: T.ReplaceStencilOp
+    });
+    function add(geo, mat, x, y, z) { var m = new T.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0); station.add(m); return m; }
 
-    // --- Body: one block with soft vertical corners, base at y = 0. The card reader bay is a real
-    // opening: a stencil mask on the front face stops the body drawing there, so the dark cavity
-    // and the reader behind it show through.
-    var BAY_W = 0.72, BAY_H = 0.88, BAY_Y = 1.25 + 0.44;
+    // --- Body: one block with soft vertical corners, base at y = 0. Its face is not drawn inside the
+    // stencil masks, so the reader bay and the 8 slots are real openings with depth.
     var bodyMat = satin.clone();
     bodyMat.stencilWrite = true; bodyMat.stencilRef = 1; bodyMat.stencilFunc = T.NotEqualStencilFunc;
     bodyMat.stencilFail = T.KeepStencilOp; bodyMat.stencilZFail = T.KeepStencilOp; bodyMat.stencilZPass = T.KeepStencilOp;
-    station.add(new T.Mesh(footprintBox(T, W, BODY_H, D, 0.045, 0.17), bodyMat));
-    var mask = new T.Mesh(new T.ShapeGeometry(rrShape(T, BAY_W, BAY_H, 0.07), 6), new T.MeshBasicMaterial({
-      colorWrite: false, depthWrite: false, stencilWrite: true, stencilRef: 1,
-      stencilFunc: T.AlwaysStencilFunc, stencilZPass: T.ReplaceStencilOp
-    }));
-    mask.renderOrder = -10;
-    mask.position.set(0, BAY_Y, FRONT + 0.0005);
-    station.add(mask);
-    var cavity = new T.Mesh(new T.BoxGeometry(BAY_W, BAY_H, 1.2),
-      new T.MeshStandardMaterial({ color: 0x050506, roughness: 0.8, metalness: 0, side: T.BackSide }));
-    cavity.position.set(0, BAY_Y, FRONT - 0.6);
-    station.add(cavity);
+    add(footprintBox(T, W, BODY_H, D, BB, BR, 16), bodyMat);
+
+    // Reader bay: a moulded opening, its edge rounded over into a deep pocket. openingGeos adds the
+    // edge radius round the outline it is given, so the outline is the opening less that radius: the
+    // opening on the face stays exactly BAY_W x BAY_H (72 x 88 mm, corner radius 7 mm).
+    // Phones get fewer steps round the small rounded edges (S = 1): they are only a few pixels wide there.
+    var BAY_W = 0.72, BAY_H = 0.88, BAY_Y = 1.25 + 0.44, BAY_R = 0.018;
+    var bay = openingGeos(T, rrPoints(BAY_W - 2 * BAY_R, BAY_H - 2 * BAY_R, 0.07 - BAY_R, 10), BAY_R, 1.2, S > 1 ? 8 : 4, -0.0015, 0.9);
+    add(bay.mask, maskMat, 0, BAY_Y, FRONT + 0.0005).renderOrder = -10;
+    add(bay.edge, satin, 0, BAY_Y, FRONT);
+    add(bay.pocket, recess, 0, BAY_Y, FRONT);
     // Reader: 66 x 130 x 18 mm, lying back 50 degrees, its bottom edge just proud of the face.
     var RL = 1.3, RT = 0.18, RA = T.MathUtils.degToRad(50);
     var reader = new T.Group();
-    reader.add(new T.Mesh(roundedBox(T, 0.66, RL, RT, 0.04, 0.08),
-      new T.MeshPhysicalMaterial({ color: 0x0e0e10, roughness: 0.35, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.2 })));
+    reader.add(new T.Mesh(roundedBox(T, 0.66, RL, RT, 0.04, 0.08, 12, 8), readerMat));
     var readerFace = new T.Mesh(decalGeo(T, 0.58, 1.16, 0.05), new T.MeshBasicMaterial({ map: readerTex, toneMapped: false }));
     readerFace.position.z = RT / 2 + 0.002;
     reader.add(readerFace);
@@ -1951,51 +2221,54 @@ can for scale</span></span>
     reader.position.set(0, 1.27 + (RL / 2) * upY - (RT / 2) * nYr, FRONT + 0.06 + (RL / 2) * upZ - (RT / 2) * nZr);
     station.add(reader);
 
-    // Seam between the slot module and the plain upper panel (front + both sides)
-    var seamF = new T.Mesh(new T.PlaneGeometry(W - 0.3, 0.012), seamMat);
-    seamF.position.set(0, SEAM_Y, FRONT + 0.001); station.add(seamF);
-    [-1, 1].forEach(function (sd) {
-      var s = new T.Mesh(new T.PlaneGeometry(D - 0.3, 0.012), seamMat);
-      s.rotation.y = sd * Math.PI / 2; s.position.set(sd * (W / 2 + 0.001), SEAM_Y, 0); station.add(s);
-    });
+    // Seam between the slot module and the plain upper panel: one line all the way round,
+    // following the rounded corners.
+    add(wallRing(T, rrPoints(W + 0.003, D + 0.003, BR + BB + 0.0015, 16), SEAM_Y - 0.006, SEAM_Y + 0.006), seamMat);
 
     // Small port on the left side, near the base
-    var port = new T.Mesh(new T.CircleGeometry(0.028, 16), portMat);
+    var port = new T.Mesh(new T.CircleGeometry(0.028, 24), portMat);
     port.rotation.y = -Math.PI / 2; port.position.set(-W / 2 - 0.002, 0.2, FRONT - 0.28); station.add(port);
 
-    // Slot panel + 8 slots (2 columns x 4 rows): pill recess, power bank end, green ring LED,
-    // and the yellow bolt on the power bank's top face peeking out.
-    var PANEL_Y0 = 0.08, PANEL_Y1 = 1.08;
-    var slotPanel = new T.Mesh(new T.ShapeGeometry(rrShape(T, 2.22, PANEL_Y1 - PANEL_Y0, 0.07), 4), gloss);
-    slotPanel.position.set(0, (PANEL_Y0 + PANEL_Y1) / 2, FRONT + 0.002);
-    station.add(slotPanel);
-    var holeGeo = new T.ShapeGeometry(rrShape(T, 0.92, 0.21, 0.105), 8);
-    var bankGeo = roundedBox(T, 0.82, 0.16, 0.16, 0.045, 0.075);
-    var ledGeo = new T.RingGeometry(0.018, 0.028, 24);
-    var ledDot = new T.CircleGeometry(0.009, 12);
-    var tipGeo = new T.PlaneGeometry(0.12, 0.016);
+    // Slot panel + 8 slots (2 columns x 4 rows): a semi-gloss panel with 8 pill openings, each with a
+    // rounded lip and a dark pocket; in each, the end of a power bank with its green ring LED and the
+    // yellow bolt on its top face peeking out. Repeated parts are merged: one draw call each.
+    var PANEL_Y0 = 0.08, PANEL_Y1 = 1.08, PCY = (PANEL_Y0 + PANEL_Y1) / 2, PZ = FRONT + 0.002;
+    // Each opening on the panel is a 92 x 21 mm pill, as before: the outline is shrunk by the lip
+    // radius (the lip rolls out to the 92 x 21 rim), so neighbouring rows keep a 2 mm flat strip
+    // between them, and the pocket walls (89 x 18 mm) still clear the 82 x 16 mm power banks.
+    var SLOT_LIP = 0.015;
+    var slot = openingGeos(T, rrPoints(0.92 - 2 * SLOT_LIP, 0.21 - 2 * SLOT_LIP, 0.105 - SLOT_LIP, 10), SLOT_LIP, 0.17, S > 1 ? 6 : 3, 0.004, 0.16);
+    var panelShape = rrShape(T, 2.22, PANEL_Y1 - PANEL_Y0, 0.07, 10);
+    var bankGeo = roundedBox(T, 0.82, 0.16, 0.16, 0.045, 0.075, 10, 6);
+    var ledGeo = new T.RingGeometry(0.018, 0.028, 32), ledDot = new T.CircleGeometry(0.009, 16);
+    var tipGeo = new T.PlaneGeometry(0.12, 0.016), glowGeo = new T.PlaneGeometry(0.11, 0.11);
+    var edges = [], pockets = [], masks = [], banks = [], leds = [], tips = [], glows = [];
     var cols = [-0.53, 0.53], rows = [0.205, 0.435, 0.665, 0.895];
     for (var ri = 0; ri < rows.length; ri++) for (var ci = 0; ci < cols.length; ci++) {
-      var x = cols[ci], y = rows[ri] + 0.01;
-      var hole = new T.Mesh(holeGeo, recess); hole.position.set(x, y, FRONT + 0.004); station.add(hole);
-      var bank = new T.Mesh(bankGeo, bankMat); bank.position.set(x, y, FRONT - 0.045); station.add(bank);
-      var zf = FRONT - 0.045 + 0.08 + 0.002;
-      var led = new T.Mesh(ledGeo, green); led.position.set(x + 0.03, y, zf); station.add(led);
-      var dot = new T.Mesh(ledDot, green); dot.position.set(x + 0.03, y, zf); station.add(dot);
-      var tip = new T.Mesh(tipGeo, yellow); tip.position.set(x - 0.25, y + 0.052, zf); station.add(tip);
+      var x = cols[ci], y = rows[ri] + 0.01, zf = FRONT - 0.045 + 0.08 + 0.002;
+      panelShape.holes.push(polyShape(T, slot.rim.map(function (p) { return [p[0] + x, p[1] + y - PCY]; })));
+      edges.push([slot.edge, x, y, PZ]); pockets.push([slot.pocket, x, y, PZ]); masks.push([slot.mask, x, y, FRONT + 0.0005]);
+      banks.push([bankGeo, x, y, FRONT - 0.045]);
+      leds.push([ledGeo, x + 0.03, y, zf], [ledDot, x + 0.03, y, zf]);
+      glows.push([glowGeo, x + 0.03, y, zf + 0.001]);
+      tips.push([tipGeo, x - 0.25, y + 0.052, zf]);
     }
+    add(new T.ShapeGeometry(panelShape), panelMat, 0, PCY, PZ);
+    add(mergeGeos(T, masks), maskMat).renderOrder = -10;
+    add(mergeGeos(T, edges), lipMat);
+    add(mergeGeos(T, pockets), recess);
+    add(mergeGeos(T, banks), bankMat);
+    add(mergeGeos(T, leds), green);
+    add(mergeGeos(T, tips), yellow);
+    add(mergeGeos(T, glows), ledGlow);
+    [slot.edge, slot.pocket, slot.mask, bankGeo, ledGeo, ledDot, tipGeo, glowGeo].forEach(function (g) { g.dispose(); });
 
-    // Light line where the screen head meets the body (sits in the groove between the two bevels)
-    var bandGeo = new T.ExtrudeGeometry(rrShape(T, W - 0.05, D - 0.05, 0.15), { depth: 0.02, bevelEnabled: false, curveSegments: 8 });
+    // Light line where the screen head meets the body: a strip in the groove between the two
+    // rounded edges, following the corners, with a soft glow spilling onto both edges.
+    var bandGeo = new T.ExtrudeGeometry(rrShape(T, W - 2 * BB + 0.04, D - 2 * BB + 0.04, BR + 0.02, 16), { depth: 0.02, bevelEnabled: false });
     bandGeo.rotateX(Math.PI / 2);
-    var band = new T.Mesh(bandGeo, lineMat);
-    band.position.y = BODY_H + 0.01;
-    station.add(band);
-    var haloGeo = new T.ExtrudeGeometry(rrShape(T, W + 0.02, D + 0.02, 0.18), { depth: 0.05, bevelEnabled: false, curveSegments: 8 });
-    haloGeo.rotateX(Math.PI / 2);
-    var halo = new T.Mesh(haloGeo, lineGlow);
-    halo.position.y = BODY_H + 0.025;
-    station.add(halo);
+    add(bandGeo, lineMat, 0, BODY_H + 0.01, 0);
+    add(wallRing(T, rrPoints(W + 0.008, D + 0.008, BR + BB + 0.004, 16), BODY_H - 0.085, BODY_H + 0.085), lineGlow);
 
     // Screen head, side profile (z, y): flush front at the light line, a small lip,
     // then the screen face leaning back 36 degrees, its back, and a low block behind.
@@ -2008,7 +2281,7 @@ can for scale</span></span>
     var headPts = [
       [-FRONT, BODY_H], [FRONT, BODY_H], lip, top, topBack, backAtRear, [-FRONT, REAR_Y]
     ];
-    station.add(new T.Mesh(profileSolid(T, headPts, W, 0.045, 0.06), satin));
+    add(profileSolid(T, headPts, W, BB, 0.06), satin);
 
     // Glass + 10.1-inch screen (220 x 138 mm) on the leaning face
     var faceC = [(lip[0] + top[0]) / 2, (lip[1] + top[1]) / 2];
@@ -2018,14 +2291,16 @@ can for scale</span></span>
       mesh.position.set(0, faceC[1] + nY * off, faceC[0] + nZ * off);
       station.add(mesh);
     }
-    onFace(new T.Mesh(new T.ShapeGeometry(rrShape(T, 2.48, 1.44, 0.05), 6), gloss), 0.002);
+    var glassGeo = new T.ShapeGeometry(rrShape(T, 2.48, 1.44, 0.05, 8));
+    onFace(new T.Mesh(glassGeo, ink), 0.002);
     onFace(new T.Mesh(new T.PlaneGeometry(2.2, 1.375), screenMat), 0.005);
-    onFace(new T.Mesh(new T.ShapeGeometry(rrShape(T, 2.48, 1.44, 0.05), 6), glare), 0.008);
+    onFace(new T.Mesh(glassGeo, glass), 0.008);
 
     station.position.y = -H / 2;
     var obj = new T.Group();
     obj.add(station);
-    return { object: obj, H: H, R: 0.5 * Math.hypot(W, D), shadow: [W * 1.55, D * 1.75], floor: 7.5 };
+    // shadow: the footprint (width, depth, corner radius) for the contact shadow
+    return { object: obj, H: H, R: 0.5 * Math.hypot(W, D), shadow: [W - 0.03, D - 0.03, BR + BB - 0.015], floor: 7.5 };
   }
 
   /* ---------- The power bank (matches the power bank photo) ----------
@@ -2033,14 +2308,16 @@ can for scale</span></span>
      Back: capacity, "insert cable" label, built-in Lightning, USB-C and Micro-USB cables. */
   function buildBank(T, kit) {
     var BW = 0.7, BH = 1.32, BT = 0.15, B = 0.035;
+    var S = Math.min(kit.tex || 1, 1.5);   // two big printed faces: 1.5x is already sharp
     var bank = new T.Group();
-    var body = new T.MeshPhysicalMaterial({ color: 0x0c0c0e, roughness: 0.24, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 0.8 });
-    bank.add(new T.Mesh(roundedBox(T, BW, BH, BT, B, 0.075), body));
+    var body = new T.MeshPhysicalMaterial({ color: new T.Color(0.011, 0.011, 0.012), roughness: 0.22, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06 });
+    bank.add(new T.Mesh(roundedBox(T, BW, BH, BT, B, 0.075, 16, 10), body));
 
     var CW = 620, CH = Math.round(CW * (BH - 2 * B - 0.02) / (BW - 2 * B - 0.02));
     function face(draw) {
-      var c = document.createElement('canvas'); c.width = CW; c.height = CH;
+      var c = document.createElement('canvas'); c.width = Math.round(CW * S); c.height = Math.round(CH * S);
       var g2 = c.getContext('2d');
+      g2.scale(c.width / CW, c.height / CH);
       g2.fillStyle = '#0d0d0f'; g2.fillRect(0, 0, CW, CH);
       draw(g2, CW, CH);
       return canvasTex(T, c, kit.aniso);
@@ -2094,14 +2371,13 @@ can for scale</span></span>
     var dw = BW - 2 * B - 0.02, dh = BH - 2 * B - 0.02;
     // Printed faces stay true to the photo's colours; a clear glare layer on top keeps the gloss.
     var faceGeo = decalGeo(T, dw, dh, 0.05);
-    var glare = new T.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05,
-      transparent: true, blending: T.AdditiveBlending, depthWrite: false, envMapIntensity: 0.35 });
+    var glare = softCap(new T.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.1, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04,
+      transparent: true, blending: T.AdditiveBlending, depthWrite: false, envMapIntensity: 0.6 }), 0.08);
     // A moulded lip around each printed face, so the print sits in a shallow cut-out of the shell
     // instead of reading as a sticker on top.
-    var rimShape = rrShape(T, dw + 0.034, dh + 0.034, 0.068);
-    rimShape.holes.push(rrShape(T, dw - 0.004, dh - 0.004, 0.048));
-    var rimGeo = new T.ExtrudeGeometry(rimShape, { depth: 0.004, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 3, curveSegments: 10 });
-    smoothNormals(rimGeo);
+    var rimShape = rrShape(T, dw + 0.034, dh + 0.034, 0.068, 12);
+    rimShape.holes.push(rrShape(T, dw - 0.004, dh - 0.004, 0.048, 12));
+    var rimGeo = bevelSolid(T, rimShape, 0.004, 0.004, 4);
     [[front, 1], [back, -1]].forEach(function (f) {
       var side = new T.Group();
       var rim = new T.Mesh(rimGeo, body);
@@ -2117,7 +2393,7 @@ can for scale</span></span>
 
     var obj = new T.Group();
     obj.add(bank);
-    return { object: obj, H: BH, R: 0.5 * Math.hypot(BW, BT), shadow: [BW * 1.7, BT * 4], floor: 2.6 };
+    return { object: obj, H: BH, R: 0.5 * Math.hypot(BW, BT), shadow: [BW - 0.12, BT - 0.03, 0.04], floor: 2.6 };
   }
 
   /* ---------- One viewer: renderer, studio light, drag to turn, auto-rotate ---------- */
@@ -2175,13 +2451,24 @@ can for scale</span></span>
     var scene = new T.Scene();
     var cam = new T.PerspectiveCamera(26, 1, 0.5, 80);
     var built;
+    // Texture detail follows the pixels the view really has: phones keep the light 1x textures, big
+    // high-density views (and the studio still) get 1.5x so small text stays sharp, very big ones 2x.
+    // Width only: on phones the view is 58% of the screen height, and a tall phone must not count as big.
+    var viewEl = document.getElementById('view');
+    var viewPx = viewEl ? viewEl.clientWidth * Math.min(window.devicePixelRatio || 1, 2) : 0;
+    var texScale = viewPx > 2400 ? 2 : viewPx > 1050 ? 1.5 : 1;
     try {
       scene.environment = studioEnv(T, r);
-      scene.add(new T.HemisphereLight(0xffffff, 0x0a0a0a, 0.18));
-      var key = new T.DirectionalLight(0xffffff, 1.2); key.position.set(4, 6, 7); scene.add(key);
-      var rimL = new T.DirectionalLight(0xd8d4ff, 0.9); rimL.position.set(-6, 3.5, -5); scene.add(rimL);
-      built = opts.build(T, { aniso: r.capabilities.getMaxAnisotropy() });
-    } catch (e) { fallback(); return api; }
+      // Soft key from the front right, a cool fill from the left, two rims from behind for the edges.
+      // The key leads: the face it lights (screen, reader, slots) stays the brightest, and the side
+      // in the fill comes out at about 70 % of it. The left rim sits well behind, so it only rims edges.
+      scene.add(new T.HemisphereLight(0xe8ecff, 0x050505, 0.22));
+      var key = new T.DirectionalLight(0xfff6ec, 1.3); key.position.set(4, 6, 7); scene.add(key);
+      var fill = new T.DirectionalLight(0xdfe6ff, 0.15); fill.position.set(-7, 2, 4); scene.add(fill);
+      var rimL = new T.DirectionalLight(0xd8d4ff, 0.5); rimL.position.set(-3, 3.5, -7); scene.add(rimL);
+      var rimR = new T.DirectionalLight(0xffffff, 0.55); rimR.position.set(6.5, 2.5, -5); scene.add(rimR);
+      built = opts.build(T, { aniso: r.capabilities.getMaxAnisotropy(), tex: texScale });
+    } catch (e) { if (window.console) console.warn('3D view unavailable:', e); fallback(); return api; }
 
     var H = built.H;
     var rig = new T.Group();           // turned by drag / auto-rotate
@@ -2193,10 +2480,18 @@ can for scale</span></span>
       flatMat(T, radialTex(T, [[0, 'rgba(255,255,255,0.10)'], [0.45, 'rgba(255,255,255,0.035)'], [1, 'rgba(255,255,255,0)']]), 1));
     floor.rotation.x = -Math.PI / 2; floor.position.y = -H / 2 - 0.004;
     rig.add(floor);
-    var shadow = new T.Mesh(new T.PlaneGeometry(built.shadow[0], built.shadow[1]),
-      flatMat(T, radialTex(T, [[0, 'rgba(0,0,0,0.95)'], [0.5, 'rgba(0,0,0,0.6)'], [1, 'rgba(0,0,0,0)']]), 0.9));
-    shadow.rotation.x = -Math.PI / 2; shadow.position.y = -H / 2 - 0.002;
-    rig.add(shadow);
+    // Contact shadow shaped like the footprint: a tight dark line where the base meets the floor,
+    // and a wide soft falloff around it.
+    var fp = built.shadow, span = Math.max(fp[0], fp[1]);
+    function shadowPlane(pad, power, res, y, order) {
+      var m = new T.Mesh(new T.PlaneGeometry(fp[0] + 2 * pad, fp[1] + 2 * pad), flatMat(T, footShadowTex(T, fp, pad, power, res), 1));
+      m.rotation.x = -Math.PI / 2; m.position.y = -H / 2 + y;
+      m.renderOrder = order;   // floor glow, then soft, then tight: a fixed order, so nothing flickers as it turns
+      rig.add(m);
+      return m;
+    }
+    var shadowSoft = shadowPlane(span * 0.42, 2.2, 128, -0.003, 1);
+    var shadowTight = shadowPlane(span * 0.045, 1.6, 512, -0.002, 2);
 
     // Framing: the whole object (as it turns) and its shadow, at any panel shape.
     var LIFT = H * 0.012;
@@ -2228,8 +2523,9 @@ can for scale</span></span>
       var bob = reduced ? 0 : Math.sin(bobT * 1.1) * LIFT;
       holder.position.y = LIFT + bob;
       var lift = (bob + LIFT) / (2 * LIFT); // 0..1
-      shadow.material.opacity = 0.92 - lift * 0.22;
-      shadow.scale.setScalar(1 + lift * 0.06);
+      shadowSoft.material.opacity = 0.62 - lift * 0.14;
+      shadowSoft.scale.setScalar(1 + lift * 0.05);
+      shadowTight.material.opacity = 0.95 - lift * 0.5;
       rig.rotation.set(pitch, yaw, 0);
     }
     function draw() { if (dead) return; pose(); r.render(scene, cam); }
