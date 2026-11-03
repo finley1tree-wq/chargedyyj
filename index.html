@@ -1808,12 +1808,12 @@ can for scale</span></span>
     var BODY_H = 2.21, SEAM_Y = 1.17;
     var station = new T.Group();
 
-    // Contactless "tap" symbol: four arcs opening to the right.
+    // Contactless "tap" symbol: three arcs opening to the right, like the usual tap icon.
     function tapMark(g2, cx, cy, size, color, lw) {
       g2.save();
       g2.strokeStyle = color; g2.lineWidth = lw; g2.lineCap = 'round';
-      for (var i = 0; i < 4; i++) {
-        var r = size * (0.22 + i * 0.26);
+      for (var i = 0; i < 3; i++) {
+        var r = size * (0.3 + i * 0.35);
         g2.beginPath(); g2.arc(cx - size * 0.45, cy, r, -0.78, 0.78); g2.stroke();
       }
       g2.restore();
