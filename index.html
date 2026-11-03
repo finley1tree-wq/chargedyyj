@@ -233,6 +233,9 @@ body {
 }
 .panel img.paper { border-radius: 2px; }
 .panel.zoomable img { cursor: zoom-in; }
+/* Photos and the spec sheet fade in just after the dots have gone, so the switch looks clean. */
+.panel.zoomable:not([hidden]) { animation: picIn .35s ease .22s both; }
+@keyframes picIn { from { opacity: 0; } to { opacity: 1; } }
 
 .panel-3d { cursor: grab; touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; }
 .panel-3d.dragging { cursor: grabbing; }
@@ -473,6 +476,7 @@ dialog.legal::backdrop { background: var(--backdrop); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   * { transition-duration: 0s !important; }
+  .panel.zoomable:not([hidden]) { animation: none; }
 }
 </style>
 </head>
@@ -1537,10 +1541,12 @@ can for scale</span></span>
       var is3D = item === 'station-3d' || item === 'power-bank-3d';
       var holding = now() < dotsHold.until;
       var spreadTarget = is3D && !holding ? 1 : 0;
-      spread += (spreadTarget - spread) * Math.min(1, dt * (spreadTarget > spread ? 1.8 : 3));
-      var fadeTarget = is3D && !holding ? 1 : 0;
+      var fadeTarget = spreadTarget;
+      // Coming back on a 3D view is quick. Leaving for a photo or the spec sheet is quicker still (about
+      // a quarter of a second), so the picture fades in on a clean background.
+      spread += (spreadTarget - spread) * Math.min(1, dt * (spreadTarget > spread ? 2.6 : (is3D ? 3 : 9)));
       if (fade < 0) fade = 0;
-      fade += (fadeTarget - fade) * Math.min(1, dt * (fadeTarget > fade ? 3 : 2));
+      fade += (fadeTarget - fade) * Math.min(1, dt * (fadeTarget > fade ? 5 : (is3D ? 2 : 12)));
       pointsMat.uniforms.uFade.value = fade;
       place();
       group.updateMatrixWorld();
@@ -1619,7 +1625,7 @@ can for scale</span></span>
     picker.onChange(function () {
       var id = picker.current || '';
       // Opening a 3D view from the side bar sends the dots out again from the model.
-      if (id === 'station-3d' || id === 'power-bank-3d') spread = Math.min(spread, 0.15);
+      if (id === 'station-3d' || id === 'power-bank-3d') { dotsHold.until = 0; spread = Math.min(spread, 0.15); }
       start();
     });
     canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); showFallback(); }, false);
