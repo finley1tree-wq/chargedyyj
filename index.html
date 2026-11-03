@@ -384,6 +384,16 @@ h2 {
 .foot a { color: inherit; }
 .footnav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
 
+/* More pictures: concept renders of the station on a bar, each labelled as a render */
+.more { max-width: 1180px; margin: 72px auto 0; }
+.more-note { margin: 0 0 20px; max-width: 60ch; color: var(--muted); }
+.more-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.more figure { margin: 0; min-width: 0; }
+.more a { display: block; transition: opacity .3s; }
+.more a:hover { opacity: .85; }
+.more img { display: block; width: 100%; height: auto; border: 1px solid var(--line); background: #0b0b0b; }
+.more figcaption { margin-top: 8px; font-size: 11px; color: var(--muted); }
+
 /* ==========================================================================
    Responsive
    ========================================================================== */
@@ -430,6 +440,8 @@ h2 {
   .cue { display: none; }
   .info { padding-top: 48px; }
   .info-grid { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .more { margin-top: 48px; }
+  .more-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
 }
 
 /* ==========================================================================
@@ -686,6 +698,36 @@ can for scale</span></span>
         <button class="link" type="button" data-open="privacy" aria-haspopup="dialog">Privacy</button>
       </div>
     </div>
+    <section class="more" id="pictures" aria-labelledby="more-title">
+      <h2 id="more-title">[more pictures]</h2>
+      <p class="more-note">Concept renders, not photos: our 3D model of the station on a bar we built in 3D. Real photos will replace them once stations are in bars.</p>
+      <div class="more-grid">
+        <figure>
+          <a href="img/concept-bar-end.webp" target="_blank" rel="noopener">
+            <picture>
+              <source media="(max-width: 900px)" srcset="img/concept-bar-end-4x5-750.webp 750w, img/concept-bar-end-4x5.webp 1200w" sizes="calc(100vw - 48px)" width="1200" height="1500">
+              <img src="img/concept-bar-end-900.webp" srcset="img/concept-bar-end-900.webp 900w, img/concept-bar-end.webp 1800w" sizes="(max-width: 900px) calc(100vw - 48px), 380px" width="1800" height="1200" loading="lazy" decoding="async" alt="Concept render of a black Charged YYJ power bank station on a dark wood bar at night. Its screen reads Phone dying? $9 for 24 h, Tap your card, above a card reader and eight charged power banks with green lights. A pint and tea lights sit beside it, with lit shelves of bottles out of focus behind.">
+            </picture>
+          </a>
+          <figcaption>Concept render · On the bar</figcaption>
+        </figure>
+        <figure>
+          <a href="img/concept-bar-grab.webp" target="_blank" rel="noopener">
+            <img src="img/concept-bar-grab-900.webp" srcset="img/concept-bar-grab-900.webp 900w, img/concept-bar-grab.webp 1800w" sizes="(max-width: 900px) calc(100vw - 48px), 380px" width="1800" height="1200" loading="lazy" decoding="async" alt="Close-up concept render of a Charged YYJ station on a wood bar, one charged power bank pulled partway out of its slot showing a yellow lightning bolt. Above it are the card reader with its keypad and the screen reading Phone dying? $9 for 24 h, Tap your card. A glass of whisky and a tea light sit beside it.">
+          </a>
+          <figcaption>Concept render · Tap, then take a power bank</figcaption>
+        </figure>
+        <figure>
+          <a href="img/concept-bar-club.webp" target="_blank" rel="noopener">
+            <picture>
+              <source media="(max-width: 900px)" srcset="img/concept-bar-club-4x5-750.webp 750w, img/concept-bar-club-4x5.webp 1200w" sizes="calc(100vw - 48px)" width="1200" height="1500">
+              <img src="img/concept-bar-club-900.webp" srcset="img/concept-bar-club-900.webp 900w, img/concept-bar-club.webp 1800w" sizes="(max-width: 900px) calc(100vw - 48px), 380px" width="1800" height="1200" loading="lazy" decoding="async" alt="Concept render of a black Charged YYJ power bank station on a bar under purple and blue club lights, its screen reading Phone dying? $9 for 24 h, Tap your card. Light beams, glowing shelf lights and out-of-focus coloured spots fill the room behind it.">
+            </picture>
+          </a>
+          <figcaption>Concept render · Under club lights</figcaption>
+        </figure>
+      </div>
+    </section>
     <footer class="foot">
       <span>Charged YYJ · Victoria, BC</span>
       <nav class="footnav" aria-label="Site"><a href="/power-bank-rental-victoria/">Power bank rental</a> <a href="/phone-charging-stations-victoria/">Charging stations</a> <a href="/for-bars/">For bars</a> <a href="/faq/">FAQ</a></nav>
